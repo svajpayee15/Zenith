@@ -5,7 +5,7 @@ const axios = require("axios");
 
 const app = express();
 const PORT = 3000;
-const MY_RENDER_URL = "https://your-app-name.onrender.com";
+const MY_RENDER_URL = "https://mako-trade-bot.onrender.com";
 
 const connectDB = require("./database/db.js");
 const auth = require("./src/routers/auth.routes.js")
