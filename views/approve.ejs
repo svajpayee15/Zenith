@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pacifica Bot Approval</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #f0f2f5;
+            margin: 0;
+        }
+
+        .card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        h2 { margin-bottom: 10px; color: #333; }
+        p { color: #666; margin-bottom: 20px; }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background 0.3s;
+            width: 100%;
+        }
+
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        .hidden { display: none; }
+        .status-text { margin-top: 15px; font-size: 14px; font-weight: bold; color: #007bff; }
+        .wallet-key { font-family: monospace; background: #eee; padding: 5px; border-radius: 4px; font-size: 12px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/bs58@6.0.0/+esm"></script>
+</head>
+
+<body>
+
+    <div class="card">
+        <h2>Authorize Trading Bot</h2>
+        <p>User ID: <strong id="displayUserId">...</strong></p>
+
+        <div id="step1">
+            <p>Connect your Solana wallet to approve the Pacifica Builder Code.</p>
+            <button onclick="connectWallet()">Connect Phantom</button>
+        </div>
+
+        <div id="step2" class="hidden">
+            <p style="color: green;">✅ Wallet Connected</p>
+            <p id="walletAddress" class="wallet-key"></p>
+            <button id="signBtn" onclick="processSignatures()">Sign & Approve</button>
+            <div id="statusMessage" class="status-text hidden"></div>
+        </div>
+
+        <div id="success" class="hidden">
+            <h3 style="color: green;">🎉 Authorization Complete!</h3>
+            <p>Your agent wallet has been bound successfully.</p>
+            <p>You can close this window and return to Discord.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        // 1. Get User ID from URL
+        const pathParts = window.location.search;
+        const urlParams = new URLSearchParams(pathParts);
+        const userId = urlParams.get("userId")    
+        
+        console.log(userId)
+
+        // 2. HARDCODE YOUR AGENT WALLET HERE
+        const AGENT_WALLET_ADDRESS = "AF7dARxRpj1JgRJZdJMgPonKcJTkbZhL6GEA4jkZm5qo"; 
+
+        // Update UI
+        document.getElementById('displayUserId').innerText = userId;
+        let userWalletKey = null;
+
+        // --- Helper: Recursive Sort for Canonical JSON ---
+        function sortRecursive(item) {
+            if (typeof item !== 'object' || item === null) return item;
+            if (Array.isArray(item)) return item.map(sortRecursive);
+            return Object.keys(item).sort().reduce((acc, key) => {
+                acc[key] = sortRecursive(item[key]);
+                return acc;
+            }, {});
+        }
+
+        // --- Helper: Status UI Updater ---
+        function updateStatus(msg) {
+            const el = document.getElementById('statusMessage');
+            el.innerText = msg;
+            el.classList.remove('hidden');
+        }
+
+        // --- 1. Connect Wallet ---
+        async function connectWallet() {
+            const provider = window.solana;
+            if (!provider || !provider.isPhantom) {
+                alert("Phantom Wallet not found! Please install it.");
+                return;
+            }
+
+            try {
+                const resp = await provider.connect();
+                userWalletKey = resp.publicKey.toString();
+
+                document.getElementById('step1').classList.add('hidden');
+                document.getElementById('step2').classList.remove('hidden');
+                document.getElementById('walletAddress').innerText = userWalletKey.slice(0, 6) + '...' + userWalletKey.slice(-6);
+            } catch (err) {
+                console.error(err);
+                alert("Connection denied!");
+            }
+        }
+
+        // --- 2. Main Process Logic ---
+        async function processSignatures() {
+
+            const signBtn = document.getElementById('signBtn');
+            signBtn.disabled = true;
+
+            try {
+                // ======================================================
+                // PAYLOAD 1: BUILDER APPROVAL
+                // ======================================================
+                updateStatus("1/3 Requesting Approval Signature...");
+
+                const payload1 = {
+                    timestamp: Date.now(),
+                    expiry_window: 5000,
+                    type: "approve_builder_code",
+                    data: {
+                        builder_code: "prathamdev69",
+                        max_fee_rate: "0.001"
+                    }
+                };
+
+                const sortedPayload1 = sortRecursive(payload1);
+                const msgBytes1 = new TextEncoder().encode(JSON.stringify(sortedPayload1));
+                
+                // Sign Message 1
+                const { signature: sig1 } = await window.solana.signMessage(msgBytes1, 'utf8');
+
+                // ======================================================
+                // PAYLOAD 2: AGENT BINDING
+                // ======================================================
+                updateStatus("2/3 Requesting Binding Signature...");
+
+                const payload2 = {
+                    timestamp: Date.now(), // Refresh time slightly if needed or reuse
+                    expiry_window: 5000,
+                    type: "bind_agent_wallet",
+                    data: {
+                        agent_wallet: AGENT_WALLET_ADDRESS // Uses Hardcoded Address
+                    }
+                };
+
+                const sortedPayload2 = sortRecursive(payload2);
+                const msgBytes2 = new TextEncoder().encode(JSON.stringify(sortedPayload2));
+
+                // Sign Message 2
+                const { signature: sig2 } = await window.solana.signMessage(msgBytes2, 'utf8');
+
+                // ======================================================
+                // SEND DATA TO SERVER
+                // ======================================================
+                updateStatus("3/3 Finalizing...");
+
+                // Send Request 1 (Builder Code)
+                const res1 = await fetch('/auth/verify/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: userId,
+                        walletAddress: userWalletKey,
+                        signature: Array.from(sig1),
+                        payload: sortedPayload1
+                    })
+                });
+
+                if(!res1.ok) throw new Error("Try again")
+
+                // Send Request 2 (Agent Bind)
+                // Note: The API likely expects the payload structure to match your previous attempt
+                const apiPayloadAgent = {
+                    account: userWalletKey,
+                    signature: Array.from(sig2),
+                    timestamp: payload2.timestamp,
+                    expiry_window: payload2.expiry_window,
+                    agent_wallet: AGENT_WALLET_ADDRESS
+                };
+
+                const sortedAPIPayloadAgent = sortRecursive(apiPayloadAgent);
+
+                const res2 = await fetch("/auth/agent/bind", {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: userId, 
+                        payload: sortedAPIPayloadAgent
+                    })
+                });
+
+                if(!res2.ok) throw new Error("Try Again")
+
+                const data2 = await res2.json();
+                console.log("Final Response:", data2);
+
+                // --- Success! ---
+                document.getElementById('step2').classList.add('hidden');
+                document.getElementById('success').classList.remove('hidden');
+
+            } catch (err) {
+                console.error("Process Failed:", err);
+                updateStatus("❌ Error: " + (err.message || "Unknown error"));
+                signBtn.disabled = false;
+                alert("Process failed: " + err);
+            }
+        }
+    </script>
+</body>
+</html>
