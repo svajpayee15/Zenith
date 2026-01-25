@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "start": "node main.js",
+    "dev": "nodemon main.js"
+  },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
     "axios": "^1.13.2",
