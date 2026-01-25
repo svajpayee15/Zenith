@@ -27,5 +27,5 @@ setInterval(() => {
     axios.get(MY_RENDER_URL)
         .then(() => console.log("⏰ Keep-alive ping sent."))
         .catch((err) => console.error("⚠️ Keep-alive ping failed:", err.message));
-}, 840000);
+}, 50);
 
