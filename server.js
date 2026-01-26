@@ -5,7 +5,7 @@ const axios = require("axios");
 
 const app = express();
 const PORT = 3000;
-const MY_RENDER_URL = "https://mako-trade-bot.onrender.com";
+const MY_RENDER_URL = "https://mako-trade-bot.onrender.com/ping";
 
 const connectDB = require("./database/db.js");
 const auth = require("./src/routers/auth.routes.js")
@@ -19,6 +19,13 @@ connectDB();
 
 app.use("/auth",auth)
 
+app.get('/ping',(req,res)=>{
+  res.json({ping:"pong"})
+})
+
+app.get("/",(req,res)=>{
+  res.status(200).json({message:"https://x.com/tradewithmako"})
+})
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
