@@ -11,7 +11,8 @@ const {
 const axios = require("axios");
 const pacificaWS = require("../../../config/ws.connection.js");
 
-const { generateChartImage } = require("../../../../utility/chart.js"); 
+// Make sure your chart.service.js code is inside this path
+const { generateChartImage } = require("../../../../utility/chart.js");
 
 const marketOrder = require("./markets.command.js");
 const fetchTrades = require("./history.command.js");
@@ -54,10 +55,13 @@ async function fetchMarket(approvals, interaction) {
 
   // --- CHART STATE ---
   let chartTimeframe = "1d"; // Default 1 Day
-  let chartUrl = await generateChartImage(symbol, "1d"); // Initial fetch
+  // Initial fetch
+  let chartUrl = await generateChartImage(symbol, "1d"); 
 
   let orderParams = {
     amount: 0.0,
+    enteredValue: 0.0, // Store what the user actually typed
+    enteredType: 'token', // 'token' or 'usd'
     slippage: 0.5,
     tp: null,
     sl: null,
@@ -208,7 +212,7 @@ async function fetchMarket(approvals, interaction) {
           inline: true,
         },
       )
-      .setImage(chartUrl) // <--- ATTACH CHART HERE
+      .setImage(chartUrl) // Chart Attached
       .setTimestamp()
       .setFooter({ text: `Updates every 2.5s • TF: ${chartTimeframe}` });
 
@@ -251,15 +255,9 @@ async function fetchMarket(approvals, interaction) {
         .setStyle(ButtonStyle.Secondary),
     );
 
-    // Return 3 rows: Chart Buttons, Trade Buttons, Close Button
     return { embeds: [embed], components: [chartRow, row, row2] };
   };
 
-  // ... (renderAccountInfo, renderStrategySetup, renderConfirmation, renderHistory, renderTradeDetails remain EXACTLY THE SAME as your code) ...
-  // [I have omitted them here to keep the answer short, but in your real file keep them!]
-  // JUST MAKE SURE TO COPY-PASTE THE EXISTING HELPER FUNCTIONS BACK IN HERE
-  
-  // -- FOR COMPLETENESS, I WILL INCLUDE THEM BELOW SO YOU CAN COPY PASTE THE WHOLE BLOCK --
   const renderAccountInfo = async () => {
     const accStats = userRecord
       ? await getAccountInfo(userRecord.walletAddress)
@@ -343,18 +341,31 @@ async function fetchMarket(approvals, interaction) {
     const priceUp = currentPrice >= prevPrice;
     prevPrice = currentPrice;
     const signPrice = priceUp ? "+" : "-";
+    
+    // Calculate values
     const positionValue = currentPrice * orderParams.amount;
     const levInt = parseInt(accountSettings.leverage.toString().replace("x", "")) || 1;
     const marginUsed = positionValue / levInt;
+    
     const tpDisplay = orderParams.tp ? `$${orderParams.tp}` : "None";
     const slDisplay = orderParams.sl ? `$${orderParams.sl}` : "None";
+
+    // --- SMART DISPLAY LOGIC ---
+    let sizeDisplay = "";
+    if (orderParams.enteredType === 'usd') {
+        // Show USD first because that's what they typed
+        sizeDisplay = `$${orderParams.enteredValue.toFixed(2)} (≈ ${orderParams.amount} ${tokenData.symbol})`;
+    } else {
+        // Show Token Amount first
+        sizeDisplay = `${orderParams.amount} ${tokenData.symbol} (≈ $${positionValue.toFixed(2)})`;
+    }
 
     const embed = new EmbedBuilder()
       .setTitle(`🛡️ Confirm ${isLong ? "Long" : "Short"} Position`)
       .setColor(color)
       .addFields(
         { name: "Live Price", value: `\`\`\`diff\n${signPrice} $${currentPrice.toFixed(4)}\n\`\`\``, inline: false },
-        { name: "📦 Size", value: `\`\`\`\n${orderParams.amount} ${tokenData.symbol}\n(≈ $${positionValue.toFixed(2)})\n\`\`\``, inline: true },
+        { name: "📦 Size", value: `\`\`\`\n${sizeDisplay}\n\`\`\``, inline: true }, // Updated Field
         { name: "⚖️ Leverage", value: `\`\`\`\n${accountSettings.leverage}\n\`\`\``, inline: true },
         { name: "💰 Est. Cost", value: `\`\`\`\n$${marginUsed.toFixed(2)}\n\`\`\``, inline: true },
         { name: "💵 Margin Mode", value: `\`\`\`\n${accountSettings.marginMode}\n\`\`\``, inline: true },
@@ -510,22 +521,20 @@ async function fetchMarket(approvals, interaction) {
     const latest = pacificaWS.getPrice(symbol);
 
     try {
-        // --- NEW: CHART TIMEFRAME HANDLER ---
+      // --- CHART BUTTON LOGIC ---
       if (["tf_5m", "tf_1h", "tf_1d", "tf_1w", "tf_30d"].includes(i.customId)) {
         await i.deferUpdate();
         const newTf = i.customId.replace("tf_", "");
         if (newTf !== chartTimeframe) {
             chartTimeframe = newTf;
-            // Generate new chart URL
             const newUrl = await generateChartImage(symbol, chartTimeframe);
             if (newUrl) chartUrl = newUrl;
         }
-        // Force update the dashboard immediately with the new chart
         viewState = "dashboard";
         await i.editReply(renderDashboard(latest));
-        return; // Exit here so we don't trigger other logic
+        return;
       }
-        
+
       if (i.customId === "close_terminal" || i.customId === "stop") {
         clearInterval(interval);
         collector.stop("user_closed");
@@ -601,6 +610,7 @@ async function fetchMarket(approvals, interaction) {
           viewState = "strategy_setup";
           await i.update(renderStrategySetup(latest, pendingSide));
         } else {
+          // --- DUAL INPUT MODAL LOGIC ---
           const modal = new ModalBuilder().setCustomId("trade_modal").setTitle(pendingSide === "long" ? `Long ${symbol}` : `Short ${symbol}`);
           let defaultAmt = orderParams.amount;
           if (defaultAmt <= 0) {
@@ -611,7 +621,23 @@ async function fetchMarket(approvals, interaction) {
             }
           }
 
-          const amt = new TextInputBuilder().setCustomId("amt").setLabel("Amount").setValue(defaultAmt.toString()).setStyle(TextInputStyle.Short).setRequired(true);
+          // 1. TOKEN AMOUNT (Optional)
+          const amt = new TextInputBuilder()
+            .setCustomId("amt")
+            .setLabel(`Amount (${symbol})`)
+            .setPlaceholder("e.g. 0.5")
+            .setValue(defaultAmt > 0 ? defaultAmt.toString() : "")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
+
+          // 2. USD AMOUNT (Optional)
+          const usdInput = new TextInputBuilder()
+            .setCustomId("usd_amt")
+            .setLabel("OR Amount in USD ($)")
+            .setPlaceholder("e.g. 100")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
+
           const slip = new TextInputBuilder().setCustomId("slip").setLabel("Slippage %").setValue(orderParams.slippage.toString()).setStyle(TextInputStyle.Short).setRequired(true);
           const tp = new TextInputBuilder().setCustomId("tp").setLabel("TP (Optional)").setStyle(TextInputStyle.Short).setRequired(false);
           const sl = new TextInputBuilder().setCustomId("sl").setLabel("SL (Optional)").setStyle(TextInputStyle.Short).setRequired(false);
@@ -621,6 +647,7 @@ async function fetchMarket(approvals, interaction) {
 
           modal.addComponents(
             new ActionRowBuilder().addComponents(amt),
+            new ActionRowBuilder().addComponents(usdInput), // ADD USD INPUT
             new ActionRowBuilder().addComponents(slip),
             new ActionRowBuilder().addComponents(tp),
             new ActionRowBuilder().addComponents(sl),
@@ -630,7 +657,42 @@ async function fetchMarket(approvals, interaction) {
 
           try {
             const sub = await i.awaitModalSubmit({ time: 60_000, filter: (s) => s.user.id === i.user.id });
-            let newAmt = parseFloat(sub.fields.getTextInputValue("amt"));
+            
+            const rawAmt = sub.fields.getTextInputValue("amt").trim();
+            const rawUsd = sub.fields.getTextInputValue("usd_amt").trim();
+
+            // --- STRICT VALIDATION START ---
+            if (rawAmt.length > 0 && rawUsd.length > 0) {
+                 return sub.reply({ content: "⚠️ **Ambiguous Input:** Please fill EITHER the Token Amount OR the USD Amount, not both.", ephemeral: true });
+            }
+            if (rawAmt.length === 0 && rawUsd.length === 0) {
+                 return sub.reply({ content: "❌ **Missing Input:** Please enter a trade size.", ephemeral: true });
+            }
+
+            let newAmt = 0;
+
+            if (rawAmt.length > 0) {
+                // USER ENTERED TOKEN
+                newAmt = parseFloat(rawAmt);
+                orderParams.enteredType = 'token';
+                orderParams.enteredValue = newAmt;
+            } else {
+                // USER ENTERED USD
+                const usdValue = parseFloat(rawUsd);
+                if (isNaN(usdValue) || usdValue <= 0) {
+                     return sub.reply({ content: "❌ Invalid USD Amount.", ephemeral: true });
+                }
+                const currentMark = parseFloat(latest.mark);
+                if (currentMark > 0) {
+                    newAmt = usdValue / currentMark;
+                    orderParams.enteredType = 'usd';
+                    orderParams.enteredValue = usdValue; // Store raw USD input
+                } else {
+                    return sub.reply({ content: "❌ Market data invalid (Price is 0).", ephemeral: true });
+                }
+            }
+            // --- STRICT VALIDATION END ---
+
             newAmt = roundStep(newAmt, marketConstraints.lot_size);
             const newSlip = parseFloat(sub.fields.getTextInputValue("slip"));
             let newTp = parseFloat(sub.fields.getTextInputValue("tp"));
@@ -671,7 +733,9 @@ async function fetchMarket(approvals, interaction) {
               if (!isLong && newSl <= currentP) return sub.reply({ content: `❌ Invalid SL. Short SL must be > $${currentP}.`, ephemeral: true });
             }
 
+            // UPDATE ORDER PARAMS WITH NEW AMOUNT AND SLIP/TP/SL
             orderParams = { ...orderParams, amount: newAmt, slippage: newSlip, tp: newTp, sl: newSl };
+            
             viewState = "preview";
             await sub.update(renderConfirmation(pacificaWS.getPrice(symbol), pendingSide));
           } catch (e) {}
