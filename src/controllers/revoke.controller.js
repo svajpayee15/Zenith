@@ -76,7 +76,7 @@ const revokePost = async (req, res) => {
       console.log(err.response.data)
       res
         .status(400)
-        .json(err.response ? err.response.data : { error: "Request Failed" });
+        .json(err.response.data);
     }
   }
 };
