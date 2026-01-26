@@ -1,9 +1,11 @@
 const express = require("express");
 const path = require("path");
+const axios = require("axios");
 
 
 const app = express();
 const PORT = 3000;
+const MY_RENDER_URL = "https://mako-trade-bot.onrender.com";
 
 const connectDB = require("./database/db.js");
 const auth = require("./src/routers/auth.routes.js")
@@ -20,3 +22,10 @@ app.use("/auth",auth)
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+setInterval(() => {
+    axios.get(MY_RENDER_URL)
+        .then(() => console.log("⏰ Keep-alive ping sent."))
+        .catch((err) => console.error("⚠️ Keep-alive ping failed:", err.message));
+}, 45000);
+
