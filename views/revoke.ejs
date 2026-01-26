@@ -136,7 +136,8 @@
                 });
 
                 const response1 = await res1.json()
-                if(!res1.ok || !response1.code == 409) throw new Error("Try Again")
+                console.log(response1.code)
+                if(!res1.ok && !response1.code == 409) throw new Error("Try Again")
 
                 // 4. Send Request 2
                 updateStatus("4/4 Sending Agent Revocation...");
