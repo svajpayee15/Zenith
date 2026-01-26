@@ -1,65 +1,74 @@
+// src/bot/commands/services/chart.service.js
 const axios = require('axios');
 const QuickChart = require('quickchart-js');
 
-const CONFIG = {
-    symbol: 'BTC',
-    timeframe: '1d',
-    apiUrl: 'https://api.pacifica.fi/api/v1/kline' 
+const API_URL = 'https://api.pacifica.fi/api/v1/kline';
+
+// Map Mako buttons to Pacifica API intervals & calculate limits
+// limit: 50 candles is the sweet spot for Discord embeds
+const TIME_CONFIG = {
+    '5m':  { apiInterval: '5m',  ms: 5 * 60 * 1000,       limit: 40 }, 
+    '1h':  { apiInterval: '1h',  ms: 60 * 60 * 1000,      limit: 48 }, // 2 Days
+    '1d':  { apiInterval: '1d',  ms: 24 * 60 * 60 * 1000, limit: 30 }, // 1 Month
+    '1w':  { apiInterval: '1w',  ms: 7 * 24 * 60 * 60 * 1000, limit: 52 }, // 1 Year
+    '30d': { apiInterval: '1M',  ms: 30 * 24 * 60 * 60 * 1000, limit: 12 } // 1 Year (Monthly)
 };
 
-async function generateDemoChart() {
-    console.log(`⏳ Fetching ${CONFIG.timeframe} data for ${CONFIG.symbol}...`);
+async function generateChartImage(symbol, timeframe) {
+    console.log(`⏳ [Chart Service] Fetching ${timeframe} for ${symbol}...`);
 
     try {
+        // 1. Get Config
+        const config = TIME_CONFIG[timeframe] || TIME_CONFIG['1d'];
+        
+        // 2. Calculate Time
         const now = Date.now();
-        let startTime;
-        let limit = 50; 
+        const startTime = now - (config.limit * config.ms);
 
-        if (CONFIG.timeframe === '1d') startTime = now - (limit * 24 * 60 * 60 * 1000);
-        else if (CONFIG.timeframe === '1h') startTime = now - (limit * 60 * 60 * 1000);
-        else startTime = now - (limit * 5 * 60 * 1000); 
-
-        const response = await axios.get(CONFIG.apiUrl, {
+        // 3. Fetch from Pacifica
+        const response = await axios.get(API_URL, {
             params: {
-                symbol: CONFIG.symbol,
-                interval: CONFIG.timeframe,
+                symbol: symbol.toUpperCase(),
+                interval: config.apiInterval,
                 start_time: startTime,
                 end_time: now
             }
         });
 
         if (!response.data.success) {
-            console.error("❌ API Error:", response.data);
-            return;
+            console.error("❌ [Chart Service] API Error:", response.data);
+            return null;
         }
 
         const candles = response.data.data;
-        console.log(`✅ Received ${candles.length} candles from Pacifica.`);
-
+        
+        // 4. Format Data for Chart.js v3
         const chartData = candles.map(c => ({
-            x: c.t,             // Time (x-axis)
+            x: c.t,             // Time
             o: parseFloat(c.o), // Open
             h: parseFloat(c.h), // High
             l: parseFloat(c.l), // Low
             c: parseFloat(c.c)  // Close
         }));
 
+        // 5. Generate Image
         const chart = new QuickChart();
         chart.setWidth(800);
         chart.setHeight(400);
-        chart.setBackgroundColor("#020B1C"); 
+        chart.setBackgroundColor("#020B1C"); // Mako Midnight Abyss
         
+        // ⚠️ CRITICAL: Force Chart.js Version 3
         chart.setVersion('3'); 
 
         chart.setConfig({
             type: 'candlestick',
             data: {
                 datasets: [{
-                    label: `${CONFIG.symbol}/USD`,
+                    label: `${symbol.toUpperCase()}/USD`,
                     data: chartData,
                     color: {
-                        up: '#00FF94',      
-                        down: '#FF2950',    
+                        up: '#00FF94',      // Apex Green
+                        down: '#FF2950',    // Crash Red
                         unchanged: '#999'
                     },
                     borderColor: {
@@ -77,7 +86,7 @@ async function generateDemoChart() {
                     x: {
                         type: 'time',
                         time: {
-                            unit: CONFIG.timeframe === '5m' ? 'minute' : 'day'
+                            unit: timeframe === '5m' ? 'minute' : 'day'
                         },
                         grid: { 
                             color: '#1A3A63',
@@ -99,12 +108,14 @@ async function generateDemoChart() {
             }
         });
 
+        // 6. Return the URL
         const url = await chart.getShortUrl();
-        console.log("Chart url:", url);
+        return url;
 
     } catch (error) {
-        console.error("❌ Failed to generate chart:", error.message);
+        console.error("❌ [Chart Service] Failed:", error.message);
+        return null;
     }
 }
 
-generateDemoChart();
+module.exports = { generateChartImage };
