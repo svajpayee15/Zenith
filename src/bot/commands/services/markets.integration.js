@@ -11,6 +11,8 @@ const {
 const axios = require("axios");
 const pacificaWS = require("../../../config/ws.connection.js");
 
+const { generateChartImage } = require("../../../../utility/chart.js"); 
+
 const marketOrder = require("./markets.command.js");
 const fetchTrades = require("./history.command.js");
 const updateLeverage = require("./leverage.command.js");
@@ -49,6 +51,10 @@ async function fetchMarket(approvals, interaction) {
   let viewState = "dashboard";
   let pendingSide = null;
   let isBusy = false;
+
+  // --- CHART STATE ---
+  let chartTimeframe = "1d"; // Default 1 Day
+  let chartUrl = await generateChartImage(symbol, "1d"); // Initial fetch
 
   let orderParams = {
     amount: 0.0,
@@ -202,8 +208,18 @@ async function fetchMarket(approvals, interaction) {
           inline: true,
         },
       )
+      .setImage(chartUrl) // <--- ATTACH CHART HERE
       .setTimestamp()
-      .setFooter({ text: "Updates every 2.5s • Pacifica Stream" });
+      .setFooter({ text: `Updates every 2.5s • TF: ${chartTimeframe}` });
+
+    // --- CHART BUTTONS ROW ---
+    const chartRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("tf_5m").setLabel("5m").setStyle(chartTimeframe === '5m' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("tf_1h").setLabel("1h").setStyle(chartTimeframe === '1h' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("tf_1d").setLabel("1d").setStyle(chartTimeframe === '1d' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("tf_1w").setLabel("1w").setStyle(chartTimeframe === '1w' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("tf_30d").setLabel("30d").setStyle(chartTimeframe === '30d' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    );
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -235,9 +251,15 @@ async function fetchMarket(approvals, interaction) {
         .setStyle(ButtonStyle.Secondary),
     );
 
-    return { embeds: [embed], components: [row, row2] };
+    // Return 3 rows: Chart Buttons, Trade Buttons, Close Button
+    return { embeds: [embed], components: [chartRow, row, row2] };
   };
 
+  // ... (renderAccountInfo, renderStrategySetup, renderConfirmation, renderHistory, renderTradeDetails remain EXACTLY THE SAME as your code) ...
+  // [I have omitted them here to keep the answer short, but in your real file keep them!]
+  // JUST MAKE SURE TO COPY-PASTE THE EXISTING HELPER FUNCTIONS BACK IN HERE
+  
+  // -- FOR COMPLETENESS, I WILL INCLUDE THEM BELOW SO YOU CAN COPY PASTE THE WHOLE BLOCK --
   const renderAccountInfo = async () => {
     const accStats = userRecord
       ? await getAccountInfo(userRecord.walletAddress)
@@ -254,7 +276,6 @@ async function fetchMarket(approvals, interaction) {
       const marginUsed = parseFloat(accStats.total_margin_used).toFixed(2);
       const available = parseFloat(accStats.available_to_spend).toFixed(2);
       const pending = parseFloat(accStats.pending_balance).toFixed(2);
-
       const equityVal = parseFloat(accStats.account_equity);
       const marginVal = parseFloat(accStats.total_margin_used);
       const usageRaw = equityVal > 0 ? (marginVal / equityVal) * 100 : 0;
@@ -264,36 +285,17 @@ async function fetchMarket(approvals, interaction) {
         { name: "💰 Equity", value: `\`$${equity}\``, inline: true },
         { name: "🏦 Balance", value: `\`$${balance}\``, inline: true },
         { name: "💳 Available", value: `\`$${available}\``, inline: true },
-        {
-          name: "📉 Margin Used",
-          value: `\`$${marginUsed} (${usage}%)\``,
-          inline: true,
-        },
+        { name: "📉 Margin Used", value: `\`$${marginUsed} (${usage}%)\``, inline: true },
         { name: "⏳ Pending Bal", value: `\`$${pending}\``, inline: true },
-        {
-          name: "📊 Positions",
-          value: `\`${accStats.positions_count || 0}\``,
-          inline: true,
-        },
-        {
-          name: "📝 Orders",
-          value: `\`${accStats.orders_count || 0}\``,
-          inline: true,
-        },
+        { name: "📊 Positions", value: `\`${accStats.positions_count || 0}\``, inline: true },
+        { name: "📝 Orders", value: `\`${accStats.orders_count || 0}\``, inline: true },
       );
     } else {
-      embed.setDescription(
-        userRecord ? "❌ Failed to fetch data." : "❌ Wallet not linked.",
-      );
+      embed.setDescription(userRecord ? "❌ Failed to fetch data." : "❌ Wallet not linked.");
     }
-
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("back")
-        .setLabel("⬅️ Back to Market")
-        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("back").setLabel("⬅️ Back to Market").setStyle(ButtonStyle.Secondary),
     );
-
     return { embeds: [embed], components: [row] };
   };
 
@@ -301,89 +303,36 @@ async function fetchMarket(approvals, interaction) {
     const isLong = side === "long";
     const color = isLong ? 0x00ff00 : 0xff0000;
     const currentPrice = parseFloat(tokenData.mark);
-
-    // Check Direction against stored previous price
     const priceUp = currentPrice >= prevPrice;
-
-    // IMPORTANT: Update prevPrice here too so it stays fresh for next interval
     prevPrice = currentPrice;
-
     const signPrice = priceUp ? "+" : "-";
 
-    const marginLabel =
-      accountSettings.marginMode === "CROSS"
-        ? "🔀 Margin: CROSS"
-        : "🔒 Margin: ISOLATED";
-    const marginStyle =
-      accountSettings.marginMode === "CROSS"
-        ? ButtonStyle.Secondary
-        : ButtonStyle.Primary;
-    const reduceLabel = orderParams.reduceOnly
-      ? "📉 Reduce Only: ON"
-      : "📉 Reduce Only: OFF";
-    const reduceStyle = orderParams.reduceOnly
-      ? ButtonStyle.Primary
-      : ButtonStyle.Secondary;
+    const marginLabel = accountSettings.marginMode === "CROSS" ? "🔀 Margin: CROSS" : "🔒 Margin: ISOLATED";
+    const marginStyle = accountSettings.marginMode === "CROSS" ? ButtonStyle.Secondary : ButtonStyle.Primary;
+    const reduceLabel = orderParams.reduceOnly ? "📉 Reduce Only: ON" : "📉 Reduce Only: OFF";
+    const reduceStyle = orderParams.reduceOnly ? ButtonStyle.Primary : ButtonStyle.Secondary;
 
     const embed = new EmbedBuilder()
       .setTitle(`⚙️ Configure ${isLong ? "Long" : "Short"} Strategy`)
       .setDescription(`Market: **${symbol}**`)
       .setColor(color)
       .addFields(
-        {
-          name: "Live Price",
-          value: `\`\`\`diff\n${signPrice} $${currentPrice.toFixed(4)}\n\`\`\``,
-          inline: false,
-        },
-        {
-          name: "Margin Mode",
-          value: `\`\`\`\n${accountSettings.marginMode}\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "Leverage",
-          value: `\`\`\`\n${accountSettings.leverage}\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "Reduce Only",
-          value: `\`\`\`\n${orderParams.reduceOnly ? "YES" : "NO"}\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "Market Specs",
-          value: `Max Lev: **${marketConstraints.max_leverage}x**\nTick Size: **${marketConstraints.tick_size}**`,
-          inline: false,
-        },
+        { name: "Live Price", value: `\`\`\`diff\n${signPrice} $${currentPrice.toFixed(4)}\n\`\`\``, inline: false },
+        { name: "Margin Mode", value: `\`\`\`\n${accountSettings.marginMode}\n\`\`\``, inline: true },
+        { name: "Leverage", value: `\`\`\`\n${accountSettings.leverage}\n\`\`\``, inline: true },
+        { name: "Reduce Only", value: `\`\`\`\n${orderParams.reduceOnly ? "YES" : "NO"}\n\`\`\``, inline: true },
+        { name: "Market Specs", value: `Max Lev: **${marketConstraints.max_leverage}x**\nTick Size: **${marketConstraints.tick_size}**`, inline: false },
       );
 
     const row1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("setup_toggle_margin")
-        .setLabel(marginLabel)
-        .setStyle(marginStyle)
-        .setDisabled(marketConstraints.isolated_only),
-      new ButtonBuilder()
-        .setCustomId("setup_set_leverage")
-        .setLabel(`⚖️ Lev: ${accountSettings.leverage}`)
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("setup_toggle_reduce")
-        .setLabel(reduceLabel)
-        .setStyle(reduceStyle),
+      new ButtonBuilder().setCustomId("setup_toggle_margin").setLabel(marginLabel).setStyle(marginStyle).setDisabled(marketConstraints.isolated_only),
+      new ButtonBuilder().setCustomId("setup_set_leverage").setLabel(`⚖️ Lev: ${accountSettings.leverage}`).setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("setup_toggle_reduce").setLabel(reduceLabel).setStyle(reduceStyle),
     );
-
     const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("continue_to_size")
-        .setLabel("➡️ Continue to Size")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId("back")
-        .setLabel("❌ Cancel")
-        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("continue_to_size").setLabel("➡️ Continue to Size").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("back").setLabel("❌ Cancel").setStyle(ButtonStyle.Secondary),
     );
-
     return { embeds: [embed], components: [row1, row2] };
   };
 
@@ -391,18 +340,12 @@ async function fetchMarket(approvals, interaction) {
     const currentPrice = parseFloat(tokenData.mark);
     const isLong = side === "long";
     const color = isLong ? 0x00ff00 : 0xff0000;
-
-    // Check Direction
     const priceUp = currentPrice >= prevPrice;
     prevPrice = currentPrice;
-
     const signPrice = priceUp ? "+" : "-";
-
     const positionValue = currentPrice * orderParams.amount;
-    const levInt =
-      parseInt(accountSettings.leverage.toString().replace("x", "")) || 1;
+    const levInt = parseInt(accountSettings.leverage.toString().replace("x", "")) || 1;
     const marginUsed = positionValue / levInt;
-
     const tpDisplay = orderParams.tp ? `$${orderParams.tp}` : "None";
     const slDisplay = orderParams.sl ? `$${orderParams.sl}` : "None";
 
@@ -410,133 +353,63 @@ async function fetchMarket(approvals, interaction) {
       .setTitle(`🛡️ Confirm ${isLong ? "Long" : "Short"} Position`)
       .setColor(color)
       .addFields(
-        {
-          name: "Live Price",
-          value: `\`\`\`diff\n${signPrice} $${currentPrice.toFixed(4)}\n\`\`\``,
-          inline: false,
-        },
-        {
-          name: "📦 Size",
-          value: `\`\`\`\n${orderParams.amount} ${tokenData.symbol}\n(≈ $${positionValue.toFixed(2)})\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "⚖️ Leverage",
-          value: `\`\`\`\n${accountSettings.leverage}\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "💰 Est. Cost",
-          value: `\`\`\`\n$${marginUsed.toFixed(2)}\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "💵 Margin Mode",
-          value: `\`\`\`\n${accountSettings.marginMode}\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "⚙️ Slippage",
-          value: `\`\`\`\n${orderParams.slippage}%\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "🎯 TP / SL",
-          value: `\`\`\`\nTP: ${tpDisplay}\nSL: ${slDisplay}\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "📉 Reduce Only",
-          value: `\`\`\`\n${orderParams.reduceOnly ? "YES" : "NO"}\n\`\`\``,
-          inline: true,
-        },
+        { name: "Live Price", value: `\`\`\`diff\n${signPrice} $${currentPrice.toFixed(4)}\n\`\`\``, inline: false },
+        { name: "📦 Size", value: `\`\`\`\n${orderParams.amount} ${tokenData.symbol}\n(≈ $${positionValue.toFixed(2)})\n\`\`\``, inline: true },
+        { name: "⚖️ Leverage", value: `\`\`\`\n${accountSettings.leverage}\n\`\`\``, inline: true },
+        { name: "💰 Est. Cost", value: `\`\`\`\n$${marginUsed.toFixed(2)}\n\`\`\``, inline: true },
+        { name: "💵 Margin Mode", value: `\`\`\`\n${accountSettings.marginMode}\n\`\`\``, inline: true },
+        { name: "⚙️ Slippage", value: `\`\`\`\n${orderParams.slippage}%\n\`\`\``, inline: true },
+        { name: "🎯 TP / SL", value: `\`\`\`\nTP: ${tpDisplay}\nSL: ${slDisplay}\n\`\`\``, inline: true },
+        { name: "📉 Reduce Only", value: `\`\`\`\n${orderParams.reduceOnly ? "YES" : "NO"}\n\`\`\``, inline: true },
       )
       .setFooter({ text: "⚠️ Execution price may vary due to volatility" });
 
     const rowControls = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("confirm_trade")
-        .setLabel("✅ Place Order")
-        .setStyle(isLong ? ButtonStyle.Success : ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId("back_to_strategy")
-        .setLabel("⚙️ Edit Settings")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("back")
-        .setLabel("❌ Cancel")
-        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("confirm_trade").setLabel("✅ Place Order").setStyle(isLong ? ButtonStyle.Success : ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("back_to_strategy").setLabel("⚙️ Edit Settings").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("back").setLabel("❌ Cancel").setStyle(ButtonStyle.Secondary),
     );
-
     return { embeds: [embed], components: [rowControls] };
   };
 
   const renderHistory = (allTrades) => {
-    const embed = new EmbedBuilder()
-      .setTitle("📜 Trade History (Open Positions)")
-      .setColor(0x2b2d31);
-
+    const embed = new EmbedBuilder().setTitle("📜 Trade History (Open Positions)").setColor(0x2b2d31);
     if (!allTrades || !Array.isArray(allTrades)) allTrades = [];
-
     const start = pageIndex * 5;
     const end = start + 5;
     const pageItems = allTrades.slice(start, end);
-
     const canGoNext = allTrades.length > end;
     const canGoPrev = pageIndex > 0;
-
     const startIndex = start + 1;
 
     if (pageItems.length === 0) {
       embed.setDescription("```\nNo open positions found.\n```");
     } else {
-      const list = pageItems
-        .map((t, i) => {
+      const list = pageItems.map((t, i) => {
           const sideRaw = t.side ? t.side.toLowerCase() : "";
           const isShort = sideRaw.includes("short") || sideRaw === "ask";
           const emoji = isShort ? "🔴" : "🟢";
           const typeLabel = isShort ? "SHORT" : "LONG ";
           const globalIndex = startIndex + i;
           return `**${globalIndex}.** ${emoji} **${t.symbol}** ${typeLabel} | \`${t.amount}\` @ \`$${parseFloat(t.entry_price || t.price).toFixed(4)}\``;
-        })
-        .join("\n\n");
+        }).join("\n\n");
       embed.setDescription(list);
-      embed.setFooter({
-        text: `Page ${pageIndex + 1}/${Math.ceil(allTrades.length / 5)}`,
-      });
+      embed.setFooter({ text: `Page ${pageIndex + 1}/${Math.ceil(allTrades.length / 5)}` });
     }
 
     const components = [];
     const tradeRow = new ActionRowBuilder();
-
     if (pageItems.length > 0) {
       pageItems.forEach((_, idx) => {
         const absoluteIndex = start + idx;
-        tradeRow.addComponents(
-          new ButtonBuilder()
-            .setCustomId(`trade_idx_${absoluteIndex}`)
-            .setLabel(`${startIndex + idx}`)
-            .setStyle(ButtonStyle.Secondary),
-        );
+        tradeRow.addComponents(new ButtonBuilder().setCustomId(`trade_idx_${absoluteIndex}`).setLabel(`${startIndex + idx}`).setStyle(ButtonStyle.Secondary));
       });
       components.push(tradeRow);
     }
-
     const navRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("history_prev")
-        .setLabel("⬅️ Prev")
-        .setStyle(ButtonStyle.Primary)
-        .setDisabled(!canGoPrev),
-      new ButtonBuilder()
-        .setCustomId("back")
-        .setLabel("🏠 Terminal")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("history_next")
-        .setLabel("Next ➡️")
-        .setStyle(ButtonStyle.Primary)
-        .setDisabled(!canGoNext),
+      new ButtonBuilder().setCustomId("history_prev").setLabel("⬅️ Prev").setStyle(ButtonStyle.Primary).setDisabled(!canGoPrev),
+      new ButtonBuilder().setCustomId("back").setLabel("🏠 Terminal").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("history_next").setLabel("Next ➡️").setStyle(ButtonStyle.Primary).setDisabled(!canGoNext),
     );
     components.push(navRow);
     return { embeds: [embed], components: components };
@@ -544,107 +417,44 @@ async function fetchMarket(approvals, interaction) {
 
   const renderTradeDetails = (trade, currentMarketData, livePosition) => {
     const isLive = !!livePosition;
-
     const sideStr = isLive ? livePosition.d : trade.side || "";
-    const isShort =
-      sideStr.toLowerCase().includes("ask") ||
-      sideStr.toLowerCase().includes("short");
-
+    const isShort = sideStr.toLowerCase().includes("ask") || sideStr.toLowerCase().includes("short");
     const color = isShort ? 0xff0000 : 0x00ff00;
     const markPrice = parseFloat(currentMarketData.mark);
-
-    const entryPrice = parseFloat(
-      isLive ? livePosition.p : trade.entry_price || trade.price,
-    );
+    const entryPrice = parseFloat(isLive ? livePosition.p : trade.entry_price || trade.price);
     const amount = parseFloat(isLive ? livePosition.a : trade.amount);
-
     let pnl = 0;
     if (isShort) pnl = (entryPrice - markPrice) * amount;
     else pnl = (markPrice - entryPrice) * amount;
-
-    const invested = parseFloat(
-      isLive ? livePosition.m : trade.margin || trade.initial_margin || 0,
-    );
-
+    const invested = parseFloat(isLive ? livePosition.m : trade.margin || trade.initial_margin || 0);
     const pnlPercent = invested !== 0 ? (pnl / invested) * 100 : 0;
     const pnlSign = pnl >= 0 ? "+" : "-";
-
     const posValue = (amount * markPrice).toFixed(2);
-
     const isIso = isLive ? livePosition.i : trade.isolated || false;
     const marginMode = isIso ? "ISOLATED" : "CROSS";
-
     const liqPrice = isLive ? livePosition.l : trade.liquidation_price;
 
     const embed = new EmbedBuilder()
       .setTitle(`🔎 Trade Details: ${trade.symbol}`)
       .setColor(color)
       .addFields(
-        {
-          name: "Side",
-          value: `\`\`\`diff\n${isShort ? "- SHORT" : "+ LONG"}\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "PnL (ROI)",
-          value: `\`\`\`diff\n${pnlSign} $${Math.abs(pnl).toFixed(2)} (${pnlPercent.toFixed(2)}%)\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "Size / Value",
-          value: `\`\`\`\n${amount} ${trade.symbol}\n(≈ $${posValue})\n\`\`\``,
-          inline: true,
-        },
-
-        {
-          name: "Entry",
-          value: `\`\`\`\n$${entryPrice.toFixed(4)}\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "Mark",
-          value: `\`\`\`\n$${markPrice.toFixed(4)}\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "Liquidation",
-          value: `\`\`\`\n${liqPrice || "N/A"}\n\`\`\``,
-          inline: true,
-        },
-
-        {
-          name: "🎯 TP / SL",
-          value: `\`\`\`\nTP: ${trade.tp_trigger_price ? `$${trade.tp_trigger_price}` : "None"}\nSL: ${trade.sl_trigger_price ? `$${trade.sl_trigger_price}` : "None"}\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "💰 Margin",
-          value: `\`\`\`\n$${invested.toFixed(2)} (${marginMode})\n\`\`\``,
-          inline: true,
-        },
-        {
-          name: "⚡ Funding Rate",
-          value: `\`\`\`\n${currentMarketData.funding || "0.00%"}\n\`\`\``,
-          inline: true,
-        },
+        { name: "Side", value: `\`\`\`diff\n${isShort ? "- SHORT" : "+ LONG"}\n\`\`\``, inline: true },
+        { name: "PnL (ROI)", value: `\`\`\`diff\n${pnlSign} $${Math.abs(pnl).toFixed(2)} (${pnlPercent.toFixed(2)}%)\n\`\`\``, inline: true },
+        { name: "Size / Value", value: `\`\`\`\n${amount} ${trade.symbol}\n(≈ $${posValue})\n\`\`\``, inline: true },
+        { name: "Entry", value: `\`\`\`\n$${entryPrice.toFixed(4)}\n\`\`\``, inline: true },
+        { name: "Mark", value: `\`\`\`\n$${markPrice.toFixed(4)}\n\`\`\``, inline: true },
+        { name: "Liquidation", value: `\`\`\`\n${liqPrice || "N/A"}\n\`\`\``, inline: true },
+        { name: "🎯 TP / SL", value: `\`\`\`\nTP: ${trade.tp_trigger_price ? `$${trade.tp_trigger_price}` : "None"}\nSL: ${trade.sl_trigger_price ? `$${trade.sl_trigger_price}` : "None"}\n\`\`\``, inline: true },
+        { name: "💰 Margin", value: `\`\`\`\n$${invested.toFixed(2)} (${marginMode})\n\`\`\``, inline: true },
+        { name: "⚡ Funding Rate", value: `\`\`\`\n${currentMarketData.funding || "0.00%"}\n\`\`\``, inline: true },
       )
       .setTimestamp(trade.created_at);
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("close_trade_action")
-        .setLabel("Close Position")
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId("back_to_history")
-        .setLabel("⬅️ Back to List")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("back")
-        .setLabel("🏠 Terminal")
-        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("close_trade_action").setLabel("Close Position").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("back_to_history").setLabel("⬅️ Back to List").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("back").setLabel("🏠 Terminal").setStyle(ButtonStyle.Secondary),
     );
-
     return { embeds: [embed], components: [row] };
   };
 
@@ -652,38 +462,19 @@ async function fetchMarket(approvals, interaction) {
 
   const interval = setInterval(async () => {
     if (isBusy) return;
-
     try {
-      if (
-        viewState === "history" ||
-        viewState === "success" ||
-        viewState === "executing" ||
-        viewState === "expired" ||
-        viewState === "closed"
-      )
-        return;
+      if (viewState === "history" || viewState === "success" || viewState === "executing" || viewState === "expired" || viewState === "closed") return;
 
       const latest = pacificaWS.getPrice(symbol);
       if (!latest) return;
 
-      if (viewState === "dashboard")
-        await interaction.editReply(renderDashboard(latest));
-      else if (viewState === "strategy_setup")
-        await interaction.editReply(renderStrategySetup(latest, pendingSide));
-      else if (viewState === "preview")
-        await interaction.editReply(renderConfirmation(latest, pendingSide));
+      if (viewState === "dashboard") await interaction.editReply(renderDashboard(latest));
+      else if (viewState === "strategy_setup") await interaction.editReply(renderStrategySetup(latest, pendingSide));
+      else if (viewState === "preview") await interaction.editReply(renderConfirmation(latest, pendingSide));
       else if (viewState === "trade_details" && selectedTrade) {
-        const tradeMarket =
-          selectedTrade.symbol === symbol
-            ? latest
-            : pacificaWS.getPrice(selectedTrade.symbol);
-        let livePos = pacificaWS.getPosition
-          ? pacificaWS.getPosition(selectedTrade.symbol)
-          : null;
-        if (tradeMarket)
-          await interaction.editReply(
-            renderTradeDetails(selectedTrade, tradeMarket, livePos),
-          );
+        const tradeMarket = selectedTrade.symbol === symbol ? latest : pacificaWS.getPrice(selectedTrade.symbol);
+        let livePos = pacificaWS.getPosition ? pacificaWS.getPosition(selectedTrade.symbol) : null;
+        if (tradeMarket) await interaction.editReply(renderTradeDetails(selectedTrade, tradeMarket, livePos));
       }
     } catch (e) {
       if (e.code === 10062 || e.code === 40060) clearInterval(interval);
@@ -719,18 +510,28 @@ async function fetchMarket(approvals, interaction) {
     const latest = pacificaWS.getPrice(symbol);
 
     try {
+        // --- NEW: CHART TIMEFRAME HANDLER ---
+      if (["tf_5m", "tf_1h", "tf_1d", "tf_1w", "tf_30d"].includes(i.customId)) {
+        await i.deferUpdate();
+        const newTf = i.customId.replace("tf_", "");
+        if (newTf !== chartTimeframe) {
+            chartTimeframe = newTf;
+            // Generate new chart URL
+            const newUrl = await generateChartImage(symbol, chartTimeframe);
+            if (newUrl) chartUrl = newUrl;
+        }
+        // Force update the dashboard immediately with the new chart
+        viewState = "dashboard";
+        await i.editReply(renderDashboard(latest));
+        return; // Exit here so we don't trigger other logic
+      }
+        
       if (i.customId === "close_terminal" || i.customId === "stop") {
         clearInterval(interval);
         collector.stop("user_closed");
         viewState = "closed";
         await i.update({
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("🔴 Terminal Session Ended")
-              .setDescription("Securely disconnected.")
-              .setColor(0x000000)
-              .setTimestamp(),
-          ],
+          embeds: [new EmbedBuilder().setTitle("🔴 Terminal Session Ended").setDescription("Securely disconnected.").setColor(0x000000).setTimestamp()],
           components: [],
         });
         isBusy = false;
@@ -758,14 +559,10 @@ async function fetchMarket(approvals, interaction) {
           const isIsolated = targetMode === "ISOLATED";
 
           try {
-            const history = await axios.get(
-              `${API_BASE}/positions?account=${userRecord.walletAddress}`,
-            );
+            const history = await axios.get(`${API_BASE}/positions?account=${userRecord.walletAddress}`);
             history.data.data.forEach((position) => {
               if (symbol.toUpperCase() == position.symbol) {
-                throw new Error(
-                  "Cannot change margin mode while position or order is open, please close it first.",
-                );
+                throw new Error("Cannot change margin mode while position or order is open, please close it first.");
               }
             });
 
@@ -773,64 +570,38 @@ async function fetchMarket(approvals, interaction) {
             accountSettings.marginMode = targetMode;
             await i.editReply(renderStrategySetup(latest, pendingSide));
           } catch (err) {
-            await i.followUp({
-              content: `❌ Error: ${formatError(err)}`,
-              ephemeral: true,
-            });
+            await i.followUp({ content: `❌ Error: ${formatError(err)}`, ephemeral: true });
           }
         } else {
-          await i.reply({
-            content: "⚠️ This market only supports Isolated margin.",
-            ephemeral: true,
-          });
+          await i.reply({ content: "⚠️ This market only supports Isolated margin.", ephemeral: true });
         }
       } else if (i.customId === "setup_toggle_reduce") {
         orderParams.reduceOnly = !orderParams.reduceOnly;
         await i.update(renderStrategySetup(latest, pendingSide));
       } else if (i.customId === "setup_set_leverage") {
-        const modal = new ModalBuilder()
-          .setCustomId("lev_modal")
-          .setTitle("Set Leverage");
-        const levInput = new TextInputBuilder()
-          .setCustomId("lev")
-          .setLabel(`Leverage (1-${marketConstraints.max_leverage}x)`)
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
+        const modal = new ModalBuilder().setCustomId("lev_modal").setTitle("Set Leverage");
+        const levInput = new TextInputBuilder().setCustomId("lev").setLabel(`Leverage (1-${marketConstraints.max_leverage}x)`).setStyle(TextInputStyle.Short).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(levInput));
         await i.showModal(modal);
 
         try {
-          const sub = await i.awaitModalSubmit({
-            time: 60000,
-            filter: (s) => s.user.id === i.user.id,
-          });
+          const sub = await i.awaitModalSubmit({ time: 60000, filter: (s) => s.user.id === i.user.id });
           const lev = parseInt(sub.fields.getTextInputValue("lev"));
 
           if (isNaN(lev) || lev < 1 || lev > marketConstraints.max_leverage) {
-            await sub.reply({
-              content: `❌ Invalid leverage. Use 1-${marketConstraints.max_leverage}.`,
-              ephemeral: true,
-            });
+            await sub.reply({ content: `❌ Invalid leverage. Use 1-${marketConstraints.max_leverage}.`, ephemeral: true });
           } else {
             await updateLeverage(userRecord.walletAddress, symbol, lev);
             accountSettings.leverage = `${lev}x`;
             await sub.update(renderStrategySetup(latest, pendingSide));
           }
         } catch (e) {}
-      } else if (
-        i.customId === "continue_to_size" ||
-        i.customId === "back_to_strategy"
-      ) {
+      } else if (i.customId === "continue_to_size" || i.customId === "back_to_strategy") {
         if (i.customId === "back_to_strategy") {
           viewState = "strategy_setup";
           await i.update(renderStrategySetup(latest, pendingSide));
         } else {
-          const modal = new ModalBuilder()
-            .setCustomId("trade_modal")
-            .setTitle(
-              pendingSide === "long" ? `Long ${symbol}` : `Short ${symbol}`,
-            );
-
+          const modal = new ModalBuilder().setCustomId("trade_modal").setTitle(pendingSide === "long" ? `Long ${symbol}` : `Short ${symbol}`);
           let defaultAmt = orderParams.amount;
           if (defaultAmt <= 0) {
             const price = parseFloat(latest.mark);
@@ -840,28 +611,10 @@ async function fetchMarket(approvals, interaction) {
             }
           }
 
-          const amt = new TextInputBuilder()
-            .setCustomId("amt")
-            .setLabel("Amount")
-            .setValue(defaultAmt.toString())
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-          const slip = new TextInputBuilder()
-            .setCustomId("slip")
-            .setLabel("Slippage %")
-            .setValue(orderParams.slippage.toString())
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-          const tp = new TextInputBuilder()
-            .setCustomId("tp")
-            .setLabel("TP (Optional)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(false);
-          const sl = new TextInputBuilder()
-            .setCustomId("sl")
-            .setLabel("SL (Optional)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(false);
+          const amt = new TextInputBuilder().setCustomId("amt").setLabel("Amount").setValue(defaultAmt.toString()).setStyle(TextInputStyle.Short).setRequired(true);
+          const slip = new TextInputBuilder().setCustomId("slip").setLabel("Slippage %").setValue(orderParams.slippage.toString()).setStyle(TextInputStyle.Short).setRequired(true);
+          const tp = new TextInputBuilder().setCustomId("tp").setLabel("TP (Optional)").setStyle(TextInputStyle.Short).setRequired(false);
+          const sl = new TextInputBuilder().setCustomId("sl").setLabel("SL (Optional)").setStyle(TextInputStyle.Short).setRequired(false);
 
           if (orderParams.tp) tp.setValue(orderParams.tp.toString());
           if (orderParams.sl) sl.setValue(orderParams.sl.toString());
@@ -876,50 +629,29 @@ async function fetchMarket(approvals, interaction) {
           await i.showModal(modal);
 
           try {
-            const sub = await i.awaitModalSubmit({
-              time: 60_000,
-              filter: (s) => s.user.id === i.user.id,
-            });
+            const sub = await i.awaitModalSubmit({ time: 60_000, filter: (s) => s.user.id === i.user.id });
             let newAmt = parseFloat(sub.fields.getTextInputValue("amt"));
-
             newAmt = roundStep(newAmt, marketConstraints.lot_size);
-
             const newSlip = parseFloat(sub.fields.getTextInputValue("slip"));
             let newTp = parseFloat(sub.fields.getTextInputValue("tp"));
             let newSl = parseFloat(sub.fields.getTextInputValue("sl"));
-
             if (isNaN(newTp)) newTp = null;
             if (isNaN(newSl)) newSl = null;
 
             if (isNaN(newAmt) || newAmt <= 0) {
-              return sub.reply({
-                content: "❌ Invalid Amount.",
-                ephemeral: true,
-              });
-            } else if (
-              newAmt * latest.mark <
-              marketConstraints.min_order_size
-            ) {
-              return sub.reply({
-                content: `❌ Trade size too small. Min is $${marketConstraints.min_order_size}.`,
-                ephemeral: true,
-              });
+              return sub.reply({ content: "❌ Invalid Amount.", ephemeral: true });
+            } else if (newAmt * latest.mark < marketConstraints.min_order_size) {
+              return sub.reply({ content: `❌ Trade size too small. Min is $${marketConstraints.min_order_size}.`, ephemeral: true });
             }
 
             if (userRecord && !orderParams.reduceOnly) {
               const accStats = await getAccountInfo(userRecord.walletAddress);
               if (accStats && accStats.available_to_spend) {
                 const avail = parseFloat(accStats.available_to_spend);
-                const lev =
-                  parseInt(
-                    accountSettings.leverage.toString().replace("x", ""),
-                  ) || 1;
+                const lev = parseInt(accountSettings.leverage.toString().replace("x", "")) || 1;
                 const estimatedCost = (latest.mark * newAmt) / lev;
                 if (estimatedCost > avail) {
-                  return sub.reply({
-                    content: `❌ **Insufficient Balance.**\nRequired: ~$${estimatedCost.toFixed(2)}\nAvailable: $${avail.toFixed(2)}`,
-                    ephemeral: true,
-                  });
+                  return sub.reply({ content: `❌ **Insufficient Balance.**\nRequired: ~$${estimatedCost.toFixed(2)}\nAvailable: $${avail.toFixed(2)}`, ephemeral: true });
                 }
               }
             }
@@ -929,43 +661,19 @@ async function fetchMarket(approvals, interaction) {
 
             if (newTp) {
               newTp = roundStep(newTp, marketConstraints.tick_size);
-              if (isLong && newTp <= currentP)
-                return sub.reply({
-                  content: `❌ Invalid TP. Long TP must be > $${currentP}.`,
-                  ephemeral: true,
-                });
-              if (!isLong && newTp >= currentP)
-                return sub.reply({
-                  content: `❌ Invalid TP. Short TP must be < $${currentP}.`,
-                  ephemeral: true,
-                });
+              if (isLong && newTp <= currentP) return sub.reply({ content: `❌ Invalid TP. Long TP must be > $${currentP}.`, ephemeral: true });
+              if (!isLong && newTp >= currentP) return sub.reply({ content: `❌ Invalid TP. Short TP must be < $${currentP}.`, ephemeral: true });
             }
 
             if (newSl) {
               newSl = roundStep(newSl, marketConstraints.tick_size);
-              if (isLong && newSl >= currentP)
-                return sub.reply({
-                  content: `❌ Invalid SL. Long SL must be < $${currentP}.`,
-                  ephemeral: true,
-                });
-              if (!isLong && newSl <= currentP)
-                return sub.reply({
-                  content: `❌ Invalid SL. Short SL must be > $${currentP}.`,
-                  ephemeral: true,
-                });
+              if (isLong && newSl >= currentP) return sub.reply({ content: `❌ Invalid SL. Long SL must be < $${currentP}.`, ephemeral: true });
+              if (!isLong && newSl <= currentP) return sub.reply({ content: `❌ Invalid SL. Short SL must be > $${currentP}.`, ephemeral: true });
             }
 
-            orderParams = {
-              ...orderParams,
-              amount: newAmt,
-              slippage: newSlip,
-              tp: newTp,
-              sl: newSl,
-            };
+            orderParams = { ...orderParams, amount: newAmt, slippage: newSlip, tp: newTp, sl: newSl };
             viewState = "preview";
-            await sub.update(
-              renderConfirmation(pacificaWS.getPrice(symbol), pendingSide),
-            );
+            await sub.update(renderConfirmation(pacificaWS.getPrice(symbol), pendingSide));
           } catch (e) {}
         }
       } else if (i.customId === "confirm_trade") {
@@ -974,254 +682,111 @@ async function fetchMarket(approvals, interaction) {
 
         if (!userRecord) {
           viewState = "dashboard";
-          await i.followUp({
-            content: "❌ Wallet not linked!",
-            ephemeral: true,
-          });
+          await i.followUp({ content: "❌ Wallet not linked!", ephemeral: true });
         } else {
           try {
             const side = pendingSide === "long" ? "bid" : "ask";
-            const receipt = await marketOrder(
-              userRecord.walletAddress,
-              symbol,
-              orderParams.amount,
-              orderParams.slippage,
-              side,
-              orderParams.tp,
-              orderParams.sl,
-              orderParams.reduceOnly,
-              userRecord.builderCode,
-            );
-
-            if (!receipt || receipt.success === false)
-              throw new Error(receipt?.data?.error || "Unknown error");
+            const receipt = await marketOrder(userRecord.walletAddress, symbol, orderParams.amount, orderParams.slippage, side, orderParams.tp, orderParams.sl, orderParams.reduceOnly, userRecord.builderCode);
+            if (!receipt || receipt.success === false) throw new Error(receipt?.data?.error || "Unknown error");
 
             if (interaction.channel) {
               const tpMsg = orderParams.tp ? `$${orderParams.tp}` : "None";
               const slMsg = orderParams.sl ? `$${orderParams.sl}` : "None";
-
               const successEmbed = new EmbedBuilder()
-                .setTitle(
-                  `✅ ${symbol} ${pendingSide === "long" ? "Long" : "Short"} Executed`,
-                )
+                .setTitle(`✅ ${symbol} ${pendingSide === "long" ? "Long" : "Short"} Executed`)
                 .setColor(pendingSide === "long" ? 0x00ff00 : 0xff0000)
                 .addFields(
-                  {
-                    name: "Entry",
-                    value: `\`\`\`\n$${latest.mark}\n\`\`\``,
-                    inline: true,
-                  },
-                  {
-                    name: "Size",
-                    value: `\`\`\`\n${orderParams.amount}\n\`\`\``,
-                    inline: true,
-                  },
-                  {
-                    name: "Lev/Margin",
-                    value: `\`\`\`\n${accountSettings.leverage} / ${accountSettings.marginMode}\n\`\`\``,
-                    inline: true,
-                  },
-                  {
-                    name: "TP/SL",
-                    value: `\`\`\`diff\n+ TP: ${tpMsg}\n- SL: ${slMsg}\n\`\`\``,
-                    inline: true,
-                  },
+                  { name: "Entry", value: `\`\`\`\n$${latest.mark}\n\`\`\``, inline: true },
+                  { name: "Size", value: `\`\`\`\n${orderParams.amount}\n\`\`\``, inline: true },
+                  { name: "Lev/Margin", value: `\`\`\`\n${accountSettings.leverage} / ${accountSettings.marginMode}\n\`\`\``, inline: true },
+                  { name: "TP/SL", value: `\`\`\`diff\n+ TP: ${tpMsg}\n- SL: ${slMsg}\n\`\`\``, inline: true },
                 )
-                .setFooter({
-                  text: `Executed by ${interaction.user.username}`,
-                  iconURL: interaction.user.displayAvatarURL(),
-                });
+                .setFooter({ text: `Executed by ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() });
               await interaction.channel.send({ embeds: [successEmbed] });
             }
 
-            const ephemeralConfirm = new EmbedBuilder()
-              .setTitle("✅ Order Placed")
-              .setDescription("Order executed successfully. Public alert sent.")
-              .setColor(0x00ff00);
-            const postTradeRow = new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId("back")
-                .setLabel("⬅️ Back to Terminal")
-                .setStyle(ButtonStyle.Secondary),
-              new ButtonBuilder()
-                .setCustomId("switch_market")
-                .setLabel("🔍 Switch")
-                .setStyle(ButtonStyle.Primary),
-            );
+            const ephemeralConfirm = new EmbedBuilder().setTitle("✅ Order Placed").setDescription("Order executed successfully. Public alert sent.").setColor(0x00ff00);
+            const postTradeRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("back").setLabel("⬅️ Back to Terminal").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId("switch_market").setLabel("🔍 Switch").setStyle(ButtonStyle.Primary));
             viewState = "success";
-            await i.editReply({
-              embeds: [ephemeralConfirm],
-              components: [postTradeRow],
-            });
+            await i.editReply({ embeds: [ephemeralConfirm], components: [postTradeRow] });
           } catch (err) {
             viewState = "success";
             const errorMsg = formatError(err);
-            const failEmbed = new EmbedBuilder()
-              .setTitle("❌ Failed")
-              .setColor(0xff0000)
-              .setDescription(`**Error:** ${errorMsg}`);
-            const postTradeRow = new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId("back")
-                .setLabel("⬅️ Back")
-                .setStyle(ButtonStyle.Secondary),
-            );
-            await i.editReply({
-              embeds: [failEmbed],
-              components: [postTradeRow],
-            });
+            const failEmbed = new EmbedBuilder().setTitle("❌ Failed").setColor(0xff0000).setDescription(`**Error:** ${errorMsg}`);
+            const postTradeRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("back").setLabel("⬅️ Back").setStyle(ButtonStyle.Secondary));
+            await i.editReply({ embeds: [failEmbed], components: [postTradeRow] });
           }
         }
       } else if (i.customId === "switch_market") {
-        const modal = new ModalBuilder()
-          .setCustomId("switch_modal")
-          .setTitle("Switch Market");
-        const input = new TextInputBuilder()
-          .setCustomId("new_symbol")
-          .setLabel("Symbol")
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
+        const modal = new ModalBuilder().setCustomId("switch_modal").setTitle("Switch Market");
+        const input = new TextInputBuilder().setCustomId("new_symbol").setLabel("Symbol").setStyle(TextInputStyle.Short).setRequired(true);
         modal.addComponents(new ActionRowBuilder().addComponents(input));
         await i.showModal(modal);
 
         try {
-          const sub = await i.awaitModalSubmit({
-            time: 30_000,
-            filter: (s) => s.user.id === i.user.id,
-          });
-          const newSym = sub.fields
-            .getTextInputValue("new_symbol")
-            .toUpperCase();
+          const sub = await i.awaitModalSubmit({ time: 30_000, filter: (s) => s.user.id === i.user.id });
+          const newSym = sub.fields.getTextInputValue("new_symbol").toUpperCase();
           if (!pacificaWS.getPrice(newSym)) {
-            await sub.reply({
-              content: `❌ **${newSym}** not found.`,
-              ephemeral: true,
-            });
+            await sub.reply({ content: `❌ **${newSym}** not found.`, ephemeral: true });
           } else {
             symbol = newSym;
             viewState = "dashboard";
+            // RESET CHART WHEN SWITCHING
+            chartTimeframe = "1d";
+            chartUrl = await generateChartImage(newSym, "1d");
+            
             await refreshMarketData(newSym);
             await sub.update(renderDashboard(pacificaWS.getPrice(newSym)));
           }
         } catch (e) {}
-      } else if (
-        [
-          "open_history",
-          "history_next",
-          "history_prev",
-          "back_to_history",
-        ].includes(i.customId)
-      ) {
+      } else if (["open_history", "history_next", "history_prev", "back_to_history"].includes(i.customId)) {
         await i.deferUpdate();
-
         if (i.customId === "back_to_history") {
           viewState = "history";
           await i.editReply(renderHistory(historyData));
           return;
         }
-
         let targetPage = pageIndex;
-        if (i.customId === "open_history") {
-          targetPage = 0;
-        } else if (i.customId === "history_next") {
-          targetPage++;
-        } else if (i.customId === "history_prev") {
-          targetPage = Math.max(0, targetPage - 1);
-        }
+        if (i.customId === "open_history") targetPage = 0;
+        else if (i.customId === "history_next") targetPage++;
+        else if (i.customId === "history_prev") targetPage = Math.max(0, targetPage - 1);
 
         const payload = await handleHistoryFetch(targetPage);
-
-        if (payload) {
-          await i.editReply(payload);
-        } else {
-          await i.followUp({
-            content: "❌ Failed to fetch history.",
-            ephemeral: true,
-          });
-        }
+        if (payload) await i.editReply(payload);
+        else await i.followUp({ content: "❌ Failed to fetch history.", ephemeral: true });
       } else if (i.customId === "close_trade_action") {
         await i.deferUpdate();
         viewState = "executing";
 
         if (!userRecord) {
           viewState = "trade_details";
-          await i.followUp({
-            content: "❌ Wallet not linked!",
-            ephemeral: true,
-          });
+          await i.followUp({ content: "❌ Wallet not linked!", ephemeral: true });
         } else {
           try {
             const originalSide = selectedTrade.side.toLowerCase();
-            let closingSide =
-              originalSide.includes("bid") ||
-              originalSide.includes("long") ||
-              originalSide.includes("buy")
-                ? "ask"
-                : "bid";
-            const receipt = await marketOrder(
-              userRecord.walletAddress,
-              selectedTrade.symbol,
-              selectedTrade.amount,
-              orderParams.slippage,
-              closingSide,
-              null,
-              null,
-              true,
-            );
+            let closingSide = originalSide.includes("bid") || originalSide.includes("long") || originalSide.includes("buy") ? "ask" : "bid";
+            const receipt = await marketOrder(userRecord.walletAddress, selectedTrade.symbol, selectedTrade.amount, orderParams.slippage, closingSide, null, null, true);
 
-            if (!receipt || receipt.success === false)
-              throw new Error(
-                receipt?.data?.error || "Failed to close position",
-              );
+            if (!receipt || receipt.success === false) throw new Error(receipt?.data?.error || "Failed to close position");
 
             if (interaction.channel) {
               const closeEmbed = new EmbedBuilder()
                 .setTitle(`🔒 Position Closed: ${selectedTrade.symbol}`)
                 .setColor(0x555555)
-                .addFields(
-                  {
-                    name: "Close Price",
-                    value: `\`\`\`\n$${latest.mark}\n\`\`\``,
-                    inline: true,
-                  },
-                  {
-                    name: "Size",
-                    value: `\`\`\`\n${selectedTrade.amount}\n\`\`\``,
-                    inline: true,
-                  },
-                )
-                .setFooter({
-                  text: `Closed by ${interaction.user.username}`,
-                  iconURL: interaction.user.displayAvatarURL(),
-                });
+                .addFields({ name: "Close Price", value: `\`\`\`\n$${latest.mark}\n\`\`\``, inline: true }, { name: "Size", value: `\`\`\`\n${selectedTrade.amount}\n\`\`\``, inline: true })
+                .setFooter({ text: `Closed by ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() });
               await interaction.channel.send({ embeds: [closeEmbed] });
             }
 
-            const successEmbed = new EmbedBuilder()
-              .setTitle(`✅ Position Closed`)
-              .setDescription("Public notification sent.")
-              .setColor(0x00ff00);
-            const row = new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId("back")
-                .setLabel("🏠 Return to Terminal")
-                .setStyle(ButtonStyle.Secondary),
-            );
+            const successEmbed = new EmbedBuilder().setTitle(`✅ Position Closed`).setDescription("Public notification sent.").setColor(0x00ff00);
+            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("back").setLabel("🏠 Return to Terminal").setStyle(ButtonStyle.Secondary));
             viewState = "success";
             await i.editReply({ embeds: [successEmbed], components: [row] });
           } catch (err) {
             viewState = "trade_details";
             const errorMsg = formatError(err);
-            const failEmbed = new EmbedBuilder()
-              .setTitle("❌ Close Failed")
-              .setColor(0xff0000)
-              .setDescription(`**Error:** ${errorMsg}`);
-            const row = new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId("back_to_history")
-                .setLabel("⬅️ Back to Trade")
-                .setStyle(ButtonStyle.Secondary),
-            );
+            const failEmbed = new EmbedBuilder().setTitle("❌ Close Failed").setColor(0xff0000).setDescription(`**Error:** ${errorMsg}`);
+            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("back_to_history").setLabel("⬅️ Back to Trade").setStyle(ButtonStyle.Secondary));
             await i.editReply({ embeds: [failEmbed], components: [row] });
           }
         }
