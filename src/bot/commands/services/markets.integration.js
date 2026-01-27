@@ -11,7 +11,6 @@ const {
 const axios = require("axios");
 const pacificaWS = require("../../../config/ws.connection.js");
 
-// Make sure your chart.service.js code is inside this path
 const { generateChartImage } = require("../../../../utility/chart.js");
 
 const marketOrder = require("./markets.command.js");
