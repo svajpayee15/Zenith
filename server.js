@@ -4,7 +4,7 @@ const axios = require("axios");
 
 
 const app = express();
-const PORT = 3000;
+const PORT = 3000 || 4000 || 5000;
 const MY_RENDER_URL = "https://mako-trade-bot.onrender.com/ping";
 
 const connectDB = require("./database/db.js");
