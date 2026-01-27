@@ -73,7 +73,7 @@ async function revoke(req, res) {
                     timestamp: payload.timestamp,
                     expiry_window: payload.expiry_window,
                     type: "revoke_agent_wallet",
-                    data: { agent_wallet: payload.agent_wallet };
+                    data: { agent_wallet: payload.agent_wallet }
         }
         const signatureFromPayload = payload.signature;
 
