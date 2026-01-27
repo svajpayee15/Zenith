@@ -1,82 +1,112 @@
-const vpaaf = require("../../utility/auth-agent-schema.zod.js")
-const axios = require("axios")
-const bs58 = require("bs58")
-const nacl = require("tweetnacl")
+const vpaaf = require("../../utility/auth-agent-schema.zod.js");
+const axios = require("axios");
+const bs58 = require("bs58");
+const nacl = require("tweetnacl");
 const approvals = require("../../database/models/approvals.Schema.js");
+const preparePayloadforSigning = require("../../utility/signer.js");
 
-async function bind(req,res){
-  const userId_R = req.body.userId;
-  const payload_R = req.body.payload;
+async function bind(req, res) {
+    const userId_R = req.body.userId;
+    const payload_R = req.body.payload;
 
-  const result = vpaaf(userId_R, payload_R);
-  if(!result.success) return res.status(400).json({ message: "Bad Request"});
+    const result = vpaaf(userId_R, payload_R);
+    if (!result.success) return res.status(400).json({ message: "Bad Request" });
 
-  const { userId, payload } = result.data;
+    const { userId, payload } = result.data;
 
-  const signatureBytes = new Uint8Array(payload.signature);
-  payload.signature = bs58.encode(signatureBytes);
+    // --- START LOCAL VERIFICATION ---
+    try {
+        const messageObj = { ...payload };
+        const signatureFromPayload = messageObj.signature;
+        delete messageObj.signature; // Remove signature to reconstruct original message
 
-  try{
-  const response = await axios.post("https://test-api.pacifica.fi/api/v1/agent/bind", payload)
+        const messageString = preparePayloadforSigning(messageObj);
+        const messageUint8 = new TextEncoder().encode(messageString);
+        const signatureUint8 = new Uint8Array(signatureFromPayload);
+        const publicKeyUint8 = bs58.decode(payload.account); // Signer is the user (account)
 
-  if(response.success || response.data.success){
-      await approvals.findOneAndUpdate(
-          { userId: userId },
-          { walletAddress: payload.account , signature: payload.signature, approved: true }
+        const isSignatureValid = nacl.sign.detached.verify(
+            messageUint8,
+            signatureUint8,
+            publicKeyUint8
         );
 
-      return res.status(200).json({ message: "ok"})
-  }
-  }
-  catch(err){
-    console.log(err)
-    return res.status(400).json({ message: err})
-  }
+        if (!isSignatureValid) {
+            return res.status(401).json({ error: "Local cryptographic verification failed." });
+        }
+
+        // Re-attach signature in base58 for Pacifica API
+        payload.signature = bs58.encode(signatureUint8);
+    } catch (err) {
+        return res.status(500).json({ error: "Verification processing error." });
+    }
+    // --- END LOCAL VERIFICATION ---
+
+    try {
+        const response = await axios.post("https://test-api.pacifica.fi/api/v1/agent/bind", payload);
+
+        if (response.data.success || response.success) {
+            await approvals.findOneAndUpdate(
+                { userId: userId },
+                { walletAddress: payload.account, signature: payload.signature, approved: true }
+            );
+            return res.status(200).json({ message: "ok" });
+        }
+    } catch (err) {
+        console.error("Pacifica Bind Error:", err.response?.data || err.message);
+        return res.status(400).json({ message: err.response?.data || "Pacifica API Error" });
+    }
 }
 
-async function revoke(req,res){
-  const userId_R = req.body.userId;
-  const payload_R = req.body.payload;
-  console.log("REVOKING AGENT WALLET")
+async function revoke(req, res) {
+    const userId_R = req.body.userId;
+    const payload_R = req.body.payload;
 
-  const result = vpaaf(userId_R, payload_R);
-  console.log(result)
-  if(!result.success) return res.status(400).json({ message: "Bad Request"});
+    const result = vpaaf(userId_R, payload_R);
+    if (!result.success) return res.status(400).json({ message: "Bad Request" });
 
-  const { userId, payload } = result.data;
+    const { userId, payload } = result.data;
 
-  const isSignatureValid = nacl.sign.detached.verify(
-    new TextEncoder().encode(JSON.stringify(payload)),
-    new Uint8Array(payload.signature),
-    bs58.decode(payload.agent_wallet)
-);
+    // --- START LOCAL VERIFICATION ---
+    try {
+        const messageObj = { ...payload };
+        const signatureFromPayload = messageObj.signature;
+        delete messageObj.signature;
 
-console.log(isSignatureValid)
+        const messageString = preparePayloadforSigning(messageObj);
+        const messageUint8 = new TextEncoder().encode(messageString);
+        const signatureUint8 = new Uint8Array(signatureFromPayload);
+        const publicKeyUint8 = bs58.decode(payload.account);
 
-if (!isSignatureValid) {
-    return res.status(401).json({ error: "Cryptographic signature verification failed locally." });
+        const isSignatureValid = nacl.sign.detached.verify(
+            messageUint8,
+            signatureUint8,
+            publicKeyUint8
+        );
+
+        if (!isSignatureValid) {
+            return res.status(401).json({ error: "Local cryptographic verification failed." });
+        }
+
+        payload.signature = bs58.encode(signatureUint8);
+    } catch (err) {
+        return res.status(500).json({ error: "Verification processing error." });
+    }
+    // --- END LOCAL VERIFICATION ---
+
+    try {
+        const response = await axios.post("https://test-api.pacifica.fi/api/v1/agent/revoke", payload);
+
+        if (response.data.success) {
+            await approvals.deleteOne({ userId: userId });
+            return res.status(200).json({ message: "ok" });
+        } else {
+            throw new Error("Pacifica rejection");
+        }
+    } catch (err) {
+        console.error("Pacifica Revoke Error:", err.response?.data || err.message);
+        return res.status(400).json({ message: err.response?.data || "Pacifica API Error" });
+    }
 }
 
-  const signatureBytes = new Uint8Array(payload.signature);
-  payload.signature = bs58.encode(signatureBytes);
-
-  try{
-  const response = await axios.post("https://test-api.pacifica.fi/api/v1/agent/revoke", payload)
-  console.log("Pacifica Agent Revoke:",response.status)
-
-  if(response.data.success){
-      await approvals.deleteOne({ userId: userId });
-
-      return res.status(200).json({ message: "ok"})
-  }
-  else{
-    throw new Error(JSON.stringify(response))
-  }
-  }
-  catch(err){
-    console.log(err)
-    return res.status(400).json({ message: err})
-  }
-}
-
-module.exports = { bind, revoke}
+module.exports = { bind, revoke };
