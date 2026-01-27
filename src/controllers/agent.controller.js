@@ -44,6 +44,16 @@ async function revoke(req,res){
 
   const { userId, payload } = result.data;
 
+  const isSignatureValid = nacl.sign.detached.verify(
+    new TextEncoder().encode(JSON.stringify(payload)),
+    new Uint8Array(payload.signature),
+    bs58.decode(payload.agent_wallet)
+);
+
+if (!isSignatureValid) {
+    return res.status(401).json({ error: "Cryptographic signature verification failed locally." });
+}
+
   const signatureBytes = new Uint8Array(payload.signature);
   payload.signature = bs58.encode(signatureBytes);
 

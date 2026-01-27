@@ -1,5 +1,6 @@
 const approvals = require("../../database/models/approvals.Schema.js");
 const bs58 = require("bs58").default || require("bs58");
+const nacl = require("tweetnacl");
 const axios = require("axios");
 const wallet = require("../config/agent.wallet.js");
 const { vaasfG, vaasfP } = require("../../utility/auth-api-schema.zod.js");
@@ -42,6 +43,16 @@ const approvePost = async (req, res) => {
   if (!result.success) return res.status(404).json({ message: "Bad Request" });
 
   const { userId, walletAddress, signature, payload } = result.data;
+
+  const isSignatureValid = nacl.sign.detached.verify(
+    new TextEncoder().encode(JSON.stringify(payload)),
+    new Uint8Array(signature),
+    bs58.decode(walletAddress)
+);
+
+if (!isSignatureValid) {
+    return res.status(401).json({ error: "Cryptographic signature verification failed locally." });
+}
 
   const userApproval = await approvals.findOne({ userId });
 
