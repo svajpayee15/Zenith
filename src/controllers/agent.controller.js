@@ -51,6 +51,8 @@ async function revoke(req,res){
     bs58.decode(payload.agent_wallet)
 );
 
+console.log(isSignatureValid)
+
 if (!isSignatureValid) {
     return res.status(401).json({ error: "Cryptographic signature verification failed locally." });
 }
