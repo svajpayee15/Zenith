@@ -1,6 +1,7 @@
 const vpaaf = require("../../utility/auth-agent-schema.zod.js")
 const axios = require("axios")
 const bs58 = require("bs58")
+const nacl = require("tweetnacl")
 const approvals = require("../../database/models/approvals.Schema.js");
 
 async function bind(req,res){
