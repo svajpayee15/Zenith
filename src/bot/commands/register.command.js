@@ -55,7 +55,7 @@ async function register(
       .setLabel("Connect Wallet")
       .setStyle(ButtonStyle.Link)
       .setURL(
-        `https://mako-trade-bot.onrender.com/auth/approve?userId=${newApprovalInitiated.userId}&nonce=${newApprovalInitiated.nonce}`
+        `http://localhost:3000/auth/approve?userId=${newApprovalInitiated.userId}&nonce=${newApprovalInitiated.nonce}`
       )
       .setEmoji("🔗")
   );
