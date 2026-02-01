@@ -13,6 +13,7 @@ const {
 
 const connectDB = require("../../database/db.js");
 const approvals = require("../../database/models/approvals.Schema.js");
+const { checkRateLimit } = require("../../utility/rateLimiter.js"); 
 
 const register = require("./commands/register.command.js");
 const revoke = require("./commands/revoke.command.js");
@@ -34,14 +35,14 @@ const commands = [
     .setName("revoke")
     .setDescription("Revoke the builder code"),
   new SlashCommandBuilder()
-        .setName('trade')
-        .setDescription('Open Trading Dashboard')
-        .addStringOption(option =>
-            option
-                .setName('symbol')
-                .setDescription('Select a market')
-                .setRequired(true)
-        )
+    .setName('trade')
+    .setDescription('Open Trading Dashboard')
+    .addStringOption(option =>
+        option
+            .setName('symbol')
+            .setDescription('Select a market')
+            .setRequired(true)
+    )
 ];
 
 client.once("ready", async () => {
@@ -58,6 +59,34 @@ client.once("ready", async () => {
 });
 
 client.on("interactionCreate", async (interaction) => {
+  let actionType = 'global';
+  
+  if (interaction.isButton()) {
+      const id = interaction.customId;
+      if (id.includes('trade') || id.includes('long') || id.includes('short') || id === 'confirm_trade' || id === 'close_trade_action') {
+          actionType = 'trade';
+      } else if (id.startsWith('tf_') || id === 'switch_market' || id === 'open_history') {
+          actionType = 'view';
+      }
+  } else if (interaction.isChatInputCommand() && interaction.commandName === 'trade') {
+      actionType = 'view';
+  }
+
+  const isAllowed = checkRateLimit(interaction.user.id, actionType);
+
+  if (!isAllowed) {
+      const msg = { 
+          content: "🔥 **Slow down!** You are interacting too fast. Please wait a moment.", 
+          ephemeral: true 
+      };
+      
+      if (interaction.deferred || interaction.replied) {
+          return interaction.followUp(msg).catch(() => {});
+      } else {
+          return interaction.reply(msg).catch(() => {});
+      }
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === "register") {

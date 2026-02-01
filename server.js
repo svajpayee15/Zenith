@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
 const axios = require("axios");
-
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 const PORT = 3000 || 4000 || 5000;
@@ -12,8 +12,21 @@ const auth = require("./src/routers/auth.routes.js")
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
+app.set("trust proxy", 1);
+
+const limiter = rateLimit({
+  windowMs: 10 * 60 * 1000, 
+  max: 50,
+  standardHeaders: true, 
+  legacyHeaders: false, 
+  message: {
+    success: false, 
+    error: "Too many requests. Please cool down for a minute"
+  }
+});
 
 app.use(express.json());
+app.use(limiter);
 
 connectDB();
 
