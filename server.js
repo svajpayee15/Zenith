@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
 const axios = require("axios");
-const helmet = require("helment")
+const helmet = require("helmet")
 const rateLimit = require("express-rate-limit");
 
 const app = express();
