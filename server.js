@@ -1,6 +1,7 @@
 const express = require("express");
 const path = require("path");
 const axios = require("axios");
+const helmet = require("helment")
 const rateLimit = require("express-rate-limit");
 
 const app = express();
@@ -27,6 +28,7 @@ const limiter = rateLimit({
 
 app.use(express.json());
 app.use(limiter);
+app.use(helmet())
 
 connectDB();
 
