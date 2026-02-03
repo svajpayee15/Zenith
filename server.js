@@ -3,6 +3,7 @@ const path = require("path");
 const axios = require("axios");
 const helmet = require("helmet")
 const rateLimit = require("express-rate-limit");
+const cors = require("cors")
 
 const app = express();
 const PORT = 3000 || 4000 || 5000;
@@ -26,20 +27,47 @@ const limiter = rateLimit({
   }
 });
 
+app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
 app.use(limiter);
-app.use(helmet())
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://cdn.tailwindcss.com"
+        ],
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com"
+        ],
+        fontSrc: [
+          "'self'",
+          "https://fonts.gstatic.com"
+        ],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"],
+      },
+    },
+  })
+);
+ 
 
 connectDB();
 
 app.use("/auth",auth)
+app.use(cors())
 
 app.get('/ping',(req,res)=>{
   res.json({ping:"pong"})
 })
 
 app.get("/",(req,res)=>{
-  res.status(200).json({message:"https://x.com/tradewithmako"})
+ res.sendFile(path.join(__dirname, "public", "static", "index.html"));
 })
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

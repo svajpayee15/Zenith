@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAKO | Discord Trading Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="shortcut icon" href="logo-white.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        mako: {
+                            light: '#EDF3F4',
+                            cyan: '#0F97CD',
+                            teal: '#22B4E2',
+                            dark: '#000000'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Anti-Document UX */
+        :root {
+            --bg-primary: #000000;
+            --bg-depth: #061e2b;
+            --text-primary: #EDF3F4;
+            --text-muted: #64748b;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --card-bg: rgba(255, 255, 255, 0.02);
+            --grid-color: rgba(15, 151, 205, 0.15);
+            --hero-gradient: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), #0F97CD 0%, transparent 60%);
+        }
+
+        .light {
+            --bg-primary: #EDF3F4;
+            --bg-depth: #ffffff;
+            --text-primary: #000000;
+            --text-muted: #475569;
+            --border-color: rgba(0, 0, 0, 0.1);
+            --card-bg: #ffffff;
+            --grid-color: rgba(15, 151, 205, 0.25);
+            --hero-gradient: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(15, 151, 205, 0.2) 0%, transparent 60%);
+        }
+
+        * {
+            cursor: none !important;
+            user-select: none;
+            -webkit-user-drag: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        input, textarea {
+            cursor: text !important;
+            user-select: text;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Custom Cursor Follower */
+        #cursor-follower {
+            position: fixed;
+            width: 30px;
+            height: 30px;
+            border: 1px solid #22B4E2;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transition: transform 0.1s ease-out, width 0.3s ease, height 0.3s ease;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: difference;
+        }
+
+        #cursor-dot {
+            position: fixed;
+            width: 4px;
+            height: 4px;
+            background: #0F97CD;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10000;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Hero Reactive Background - PROTECTED */
+        .hero-reactive-bg {
+            position: relative;
+            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), var(--bg-depth) 0%, var(--bg-primary) 60%);
+        }
+
+        .spotlight-reveal {
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            mask-image: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), black 0%, transparent 25%);
+            z-index: 1;
+        }
+
+        /* Typography Hierarchy */
+        .text-hero {
+            font-size: clamp(2.5rem, 10vw, 7rem);
+            line-height: 0.85;
+            letter-spacing: -0.05em;
+            font-weight: 900;
+            text-transform: uppercase;
+            font-style: italic;
+        }
+
+        /* Bento Grid Style - FLIP REMOVED */
+        .bento-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            transition: border-color 0.4s ease, background 0.4s ease;
+            overflow: hidden;
+        }
+        .bento-card:hover { border-color: #0F97CD; }
+
+        /* Waitlist - PROTECTED */
+        .waitlist-white-bg {
+            background: #ffffff;
+            color: #000000;
+            position: relative;
+        }
+        .waitlist-fade-mask {
+            position: absolute;
+            inset: 0;
+            mask-image: radial-gradient(circle, black 60%, transparent 100%);
+            pointer-events: none;
+        }
+
+        /* Footer Abyss Style - PROTECTED */
+        .footer-abyss {
+            position: relative;
+            background: linear-gradient(to top, #0F97CD 0%, #000000 100%);
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+        .footer-grid-fade {
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.15) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+            background-size: 40px 40px;
+            mask-image: linear-gradient(to top, black 0%, transparent 100%);
+            pointer-events: none;
+        }
+
+        @keyframes abyss-pulse {
+            0%, 100% { transform: translate(-50%, 0) scale(1); opacity: 0.05; filter: blur(60px); }
+            50% { transform: translate(-50%, -10px) scale(1.15); opacity: 0.12; filter: blur(90px); }
+        }
+        .abyss-sphere {
+            position: absolute;
+            bottom: -200px;
+            left: 50%;
+            width: 700px;
+            height: 500px;
+            background: radial-gradient(circle, #22B4E2, transparent 70%);
+            border-radius: 50%;
+            animation: abyss-pulse 7s infinite ease-in-out;
+            pointer-events: none;
+        }
+
+        /* Section Gradients */
+        .section-near-black {
+            background: linear-gradient(180deg, #050505 0%, #000000 100%);
+        }
+
+        /* NEW Terminal Beeping Aura Style */
+        @keyframes aura-beep {
+            0%, 100% { opacity: 0.2; transform: scale(1); filter: blur(40px); }
+            50% { opacity: 0.3; transform: scale(1.2); filter: blur(60px); }
+        }
+        .terminal-glow-aura {
+            position: absolute;
+            width: 150%;
+            height: 135%;
+            background: radial-gradient(circle, #0F97CD 0%, transparent 70%);
+            border-radius: 50%;
+            animation: aura-beep 7s infinite ease-in-out;
+            z-index: 0;
+             /* filter: blur(40px);
+            opacity: 0.35; */
+            pointer-events: none;
+        }
+
+        .terminal-container {
+            width: 100%;
+            max-width: 950px;
+            margin: 0 auto;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .terminal-image {
+            width: 100%;
+            height: auto;
+            max-height: 80vh;
+            display: block;
+            object-fit: contain;
+            position: relative;
+            z-index: 1;
+            filter: drop-shadow(0 0 20px rgba(0,0,0,0.5));
+        }
+
+        /* Logic for Button/Input */
+        .btn-mako {
+            padding: 0.75rem 2.5rem;
+            background: #EDF3F4;
+            color: #000;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 0.75rem;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+        }
+        .btn-mako:hover {
+            background: #0F97CD;
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(15px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .arch-node {
+            width: 12px;
+            height: 12px;
+            background: #000;
+            border: 1px solid #22B4E2;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(34, 180, 226, 0.5);
+            z-index: 10;
+        }
+        .arch-line {
+            width: 1px;
+            background: linear-gradient(to bottom, #22B4E2, transparent);
+            height: 100%;
+            position: absolute;
+            left: 5.5px;
+            top: 12px;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: #333; }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="cursor-follower"></div>
+    <div id="cursor-dot"></div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 border-b border-white/5 bg-black/40 backdrop-blur-2xl">
+        <div class="max-w-[1400px] mx-auto px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-4 group clickable">
+                <img src="logo.png" alt="Mako" class="w-12 h-12 object-contain">
+                <span class="text-lg font-black tracking-tighter uppercase text-white italic">MAKO</span>
+            </div>
+            
+            <div class="hidden md:flex gap-10 text-[10px] font-bold uppercase tracking-[0.4em] text-slate-400">
+                <a href="#architecture" class="hover:text-white transition">Architecture</a>
+                <a href="#terminal" class="hover:text-white transition">Terminal</a>
+            </div>
+
+            <button onclick="window.location.href='https://discord.gg/be7yacbtQz'" class="mono text-[9px] font-black uppercase tracking-[0.2em] bg-white text-black px-6 py-2 rounded hover:bg-mako-cyan transition">
+                Trade Now            
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section - PROTECTED -->
+    <section class="hero-reactive-bg min-h-screen flex flex-col justify-center px-10 pt-16 overflow-hidden border-b border-white/5">
+        <div class="spotlight-reveal"></div>
+
+        <div class="max-w-[1400px] mx-auto w-full relative z-10">
+            <div class="reveal">
+                <div class="flex items-center gap-4 mb-8">
+                    <div class="h-[1px] w-12 bg-mako-cyan shadow-[0_0_10px_#0F97CD]"></div>
+                    <span class="mono text-mako-cyan text-[10px] font-black uppercase tracking-[0.5em]">Stable Release 1.0</span>
+                </div>
+                <h1 class="text-hero mb-10 tracking-tighter leading-tight">
+                    HUNT.<br>EXECUTE.<br><span class="text-transparent opacity-20" style="-webkit-text-stroke: 1px var(--text-primary);">DOMINATE.</span>
+                </h1>
+            </div>
+
+            <div class="flex flex-col lg:flex-row justify-between items-end gap-12 reveal" style="transition-delay: 200ms;">
+                <p class="text-lg sm:text-2xl text-slate-200 max-w-2xl font-light leading-snug tracking-tight">
+                    Mako is a Discord trading bot on <span class="text-white font-medium">Pacifica Finance</span>. It ensures secure and fast trading with the best UX, right inside Discord.
+                </p>
+                <div class="flex flex items-end gap-3">
+                    <button onclick="window.location.href='https://discord.gg/be7yacbtQz'" class="btn-mako">Trade Now</button>
+                    <button onclick="window.location.href='https://discord.com/oauth2/authorize?client_id=1440349761055101051'" class="btn-mako">Integrate Bot</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Intelligence Bento Grid - PROTECTED -->
+    <section id="about" class="py-24 px-10 section-near-black">
+        <div class="max-w-[1400px] mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 bento-container">
+                <div class="md:col-span-8 bento-card p-12 flex flex-col justify-between reveal group h-[400px]">
+                    <div>
+                        <span class="mono text-mako-cyan text-[9px] uppercase tracking-[0.5em] mb-8 block opacity-60">01 / TEAM BASED</span>
+                        <h3 class="text-4xl font-black uppercase italic mb-6 tracking-tighter text-mako-light leading-none">Collective Alpha.</h3>
+                        <p class="text-lg text-slate-400 font-light max-w-xl leading-relaxed">
+                            Transform trading into social synergy. Execute institutional trades alongside your guild directly in Discord message threads.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="md:col-span-4 bento-card p-12 reveal flex flex-col justify-center items-center text-center" style="transition-delay: 100ms;">
+                    <span class="material-symbols-outlined text-mako-cyan text-4xl mb-8">verified_user</span>
+                    <h3 class="text-xl font-black uppercase italic mb-4">Trustless logic.</h3>
+                    <p class="text-sm text-slate-500 font-medium leading-snug">No sensitive data stored. Full custody via Pacifica. Full Transparency (refer Litepaper)</p>
+                </div>
+
+                <div class="md:col-span-5 bento-card p-12 bg-gradient-to-br from-[#000] to-[#061e2b] reveal flex flex-col justify-center" style="transition-delay: 200ms;">
+                    <span class="material-symbols-outlined text-white text-3xl mb-8">bolt</span>
+                    <h3 class="text-2xl font-black uppercase italic mb-4">Zero Friction.</h3>
+                    <p class="text-base text-slate-400 font-light leading-relaxed">One time signatures is what it takes to start trading on Discord.</p>
+                </div>
+
+                <div class="md:col-span-7 bento-card p-12 flex items-center justify-between group reveal" style="transition-delay: 300ms;">
+                    <div class="w-1/2">
+                        <span class="mono text-slate-600 text-[10px] uppercase tracking-[0.5em] mb-8 block uppercase">03 / LIQUIDITY</span>
+                        <h3 class="text-3xl font-black uppercase italic mb-4 text-mako-light tracking-tight">Pacifica API.</h3>
+                        <p class="text-sm text-slate-500 font-medium">Trade on Discord with the help of Pacifica API and Agent Wallets.</p>
+                    </div>
+                    <div class="w-1/3 flex justify-center">
+                        <img src="favicon.ico" class="w-28 h-28 object-contain grayscale group-hover:grayscale-0 group-hover:drop-shadow-[0_0_20px_#0F97CD] transition duration-700">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Schematic Flow - PROTECTED -->
+    <section id="architecture" class="py-32 px-10 border-y border-white/5 section-near-black">
+        <div class="max-w-[1200px] mx-auto">
+            <h2 class="text-5xl font-black uppercase italic tracking-tighter text-center mb-24 leading-none text-white">Architecture</h2>
+            
+            <div class="max-w-2xl mx-auto space-y-12">
+                <div class="flex gap-10 reveal">
+                    <div class="flex flex-col items-center relative">
+                        <div class="arch-node"></div>
+                        <div class="arch-line"></div>
+                    </div>
+                    <div class="pb-10">
+                        <span class="mono text-mako-cyan text-[10px] font-bold uppercase tracking-widest mb-1 block opacity-40">Front End</span>
+                        <h4 class="text-2xl font-black uppercase italic mb-3">Discord Bot Layer</h4>
+                        <p class="text-lg text-slate-500 font-light leading-snug">Visual terminal rendering directly in community feeds.</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-10 reveal" style="transition-delay: 100ms;">
+                    <div class="flex flex-col items-center relative">
+                        <div class="arch-node"></div>
+                        <div class="arch-line"></div>
+                    </div>
+                    <div class="pb-10">
+                        <span class="mono text-mako-cyan text-[10px] font-bold uppercase tracking-widest mb-1 block opacity-40">Verification</span>
+                        <h4 class="text-2xl font-black uppercase italic mb-3">Web3 Authentication</h4>
+                        <p class="text-lg text-slate-500 font-light leading-snug">Secure non-custodial sessions via Approve and Revoke logic.</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-10 reveal" style="transition-delay: 200ms;">
+                    <div class="flex flex-col items-center relative">
+                        <div class="arch-node"></div>
+                        <div class="arch-line"></div>
+                    </div>
+                    <div class="pb-10">
+                        <span class="mono text-mako-cyan text-[10px] font-bold uppercase tracking-widest mb-1 block opacity-40">Execution</span>
+                        <h4 class="text-2xl font-black uppercase italic mb-3">Node.js Core</h4>
+                        <p class="text-lg text-slate-500 font-light leading-snug">Managing WebSockets for live market broadcasts and DEX transactions.</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-10 reveal" style="transition-delay: 300ms;">
+                    <div class="flex flex-col items-center relative">
+                        <div class="arch-node"></div>
+                    </div>
+                    <div>
+                        <span class="mono text-mako-cyan text-[10px] font-bold uppercase tracking-widest mb-1 block opacity-40">Data Vault</span>
+                        <h4 class="text-2xl font-black uppercase italic mb-3">Engagement Analytics</h4>
+                        <p class="text-lg text-slate-500 font-light leading-snug">Tracking volume metrics and session states using MongoDB.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Terminal Image (MODIFIED: Glow Aura from Behind) -->
+    <section id="terminal" class="py-24 px-6 bg-black flex flex-col justify-center items-center min-h-[90vh]">
+        <div class="reveal mb-12 text-center">
+            <h2 class="text-5xl font-black uppercase italic tracking-tighter mb-4 leading-none">The Terminal</h2>
+            <p class="text-lg text-slate-500 font-light uppercase tracking-widest">Natively integrated execution</p>
+        </div>
+        
+        <div class="terminal-container reveal">
+            <!-- One single large beeping glow source behind the image -->
+            <div class="terminal-glow-aura"></div>
+            
+            <!-- Terminal Image -->
+            <img src="image (9).png" alt="Mako Terminal" class="terminal-image">
+        </div>
+    </section>
+
+    <!-- Waitlist CTA - PROTECTED -->
+    <section id="waitlist" class="waitlist-white-bg py-20 px-10 text-center">
+        <div class="waitlist-fade-mask"></div>
+        <div class="max-w-3xl mx-auto reveal relative z-10">
+            <h2 class="text-5xl font-black uppercase italic mb-4 tracking-tighter">Enter the Guild</h2>
+            <p class="text-lg text-gray-500 mb-8 font-medium">Join the early-access stability hunt.</p>
+            
+            <form class="max-w-xl mx-auto flex flex-col sm:flex-row gap-0 border border-gray-200 rounded-lg overflow-hidden bg-white shadow-xl" onsubmit="event.preventDefault(); document.getElementById('success').classList.remove('hidden'); this.classList.add('hidden');">
+                <input type="email" required placeholder="IDENTIFIER@MAKO.IO" class="flex-grow bg-transparent px-10 py-5 text-sm font-black uppercase tracking-widest focus:outline-none placeholder:text-gray-300 text-black">
+                <button type="submit" class="bg-black text-white px-12 py-5 font-black text-sm uppercase tracking-widest hover:bg-mako-cyan transition">
+                    JOIN
+                </button>
+            </form>
+
+            <div id="success" class="hidden text-mako-cyan font-black text-2xl uppercase italic tracking-tighter pt-6">
+                Success. Stay sharp.
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer Abyss - PROTECTED -->
+    <footer class="footer-abyss pt-32 px-10">
+        <div class="footer-grid-fade"></div>
+        <div class="abyss-sphere"></div>
+        
+        <div class="max-w-[1400px] mx-auto w-full relative z-10 flex flex-col md:flex-row justify-between items-start gap-12 mb-24">
+            <div class="space-y-10">
+                <div class="flex items-center gap-6 clickable">
+                    <img src="logo.png" class="w-12 h-17 brightness-125">
+                    <span class="text-4xl font-black italic uppercase tracking-tighter text-white">MAKO</span>
+                </div>
+                <p class="text-slate-200 text-xs font-bold uppercase tracking-[0.3em] max-w-sm leading-relaxed opacity-80">
+                    Apex Social Terminal for Pacifica Finance Protocol
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-32 text-[10px] font-black uppercase tracking-widest text-slate-100">
+                <div class="space-y-8 flex flex-col">
+                    <span class="text-white opacity-40">Socials</span>
+                    <a href="https://discord.gg/be7yacbtQz" class="hover:text-white transition opacity-60 hover:opacity-100">Discord</a>
+                    <a href="https://x.com/TradeWithMako" target="_blank" class="hover:text-white transition opacity-60 hover:opacity-100">Twitter (X)</a>
+                </div>
+                <div class="space-y-8 flex flex-col">
+                    <span class="text-white opacity-40">Others</span>
+                    <a href="Mako Bot Litepaper.pdf" target="_blank" class="hover:text-white transition opacity-60 hover:opacity-100">Litepaper</a>
+                    <a href="https://discord.com/oauth2/authorize?client_id=1440349761055101051" class="hover:text-white transition opacity-60 hover:opacity-100">Integrate Bot</a>
+                    <a href="https://app.pacifica.fi" target="_blank" class="hover:text-white transition opacity-60 hover:opacity-100">Pacifica Finance</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="relative z-10 w-full text-center pb-12 mt-auto">
+            <div class="max-w-[1400px] mx-auto border-t border-white/10 pt-10">
+                <div class="mono text-[9px] font-black uppercase tracking-[0.5em] text-white opacity-40">
+                    © 2026 Mako Terminal · All Rights Reserved · Powered by Pacifica
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Custom Cursor Follower Logic
+        const follower = document.getElementById('cursor-follower');
+        const dot = document.getElementById('cursor-dot');
+        const body = document.body;
+
+        window.addEventListener('mousemove', (e) => {
+            const x = (e.clientX / window.innerWidth) * 100;
+            const y = (e.clientY / window.innerHeight) * 100;
+            
+            body.style.setProperty('--mouse-x', `${x}%`);
+            body.style.setProperty('--mouse-y', `${y}%`);
+            
+            follower.style.left = e.clientX + 'px';
+            follower.style.top = e.clientY + 'px';
+            dot.style.left = e.clientX + 'px';
+            dot.style.top = e.clientY + 'px';
+        });
+
+        // Hover expansions
+        document.querySelectorAll('a, button, .clickable, input').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                follower.style.width = '55px';
+                follower.style.height = '55px';
+                follower.style.background = 'rgba(34, 180, 226, 0.1)';
+            });
+            el.addEventListener('mouseleave', () => {
+                follower.style.width = '30px';
+                follower.style.height = '30px';
+                follower.style.background = 'transparent';
+            });
+        });
+
+        // Reveal Animations on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) entry.target.classList.add('active');
+            });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    </script>
+</body>
+</html>
