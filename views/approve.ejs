@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pacifica Bot Approval</title>
+    <title>Mako Bot | Approval</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -49,7 +49,6 @@
         .status-text { margin-top: 15px; font-size: 14px; font-weight: bold; color: #007bff; }
         .wallet-key { font-family: monospace; background: #eee; padding: 5px; border-radius: 4px; font-size: 12px; }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/bs58@6.0.0/+esm"></script>
 </head>
 
 <body>
@@ -60,13 +59,13 @@
 
         <div id="step1">
             <p>Connect your Solana wallet to approve the Pacifica Builder Code.</p>
-            <button onclick="connectWallet()">Connect Phantom</button>
+            <button id="connectBtn">Connect Phantom</button>
         </div>
 
         <div id="step2" class="hidden">
             <p style="color: green;">✅ Wallet Connected</p>
             <p id="walletAddress" class="wallet-key"></p>
-            <button id="signBtn" onclick="processSignatures()">Sign & Approve</button>
+            <button id="signBtn">Sign & Approve</button>
             <div id="statusMessage" class="status-text hidden"></div>
         </div>
 
@@ -235,6 +234,14 @@
                 alert("Process failed: " + err);
             }
         }
+
+        // --- Attach Event Listeners (CSP-safe) ---
+document.getElementById("connectBtn")
+  .addEventListener("click", connectWallet);
+
+document.getElementById("signBtn")
+  .addEventListener("click", processSignatures);
+
     </script>
 </body>
 </html>

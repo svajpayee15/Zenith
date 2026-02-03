@@ -38,7 +38,7 @@ app.use(
         scriptSrc: [
           "'self'",
           "'unsafe-inline'",
-          "https://cdn.tailwindcss.com"
+          "https://cdn.tailwindcss.com",
         ],
         styleSrc: [
           "'self'",
@@ -51,10 +51,11 @@ app.use(
         ],
         imgSrc: ["'self'", "data:"],
         connectSrc: ["'self'"],
-      },
-    },
+      }
+    }
   })
 );
+
  
 
 connectDB();
