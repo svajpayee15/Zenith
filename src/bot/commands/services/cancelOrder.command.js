@@ -46,7 +46,7 @@ async function cancelOrder(walletAddress, symbol, oid) {
 
     try {
         const response = await axios.post(
-            "https://test-api.pacifica.fi/api/v1/orders/create_market",
+            "https://api.pacifica.fi/api/v1/orders/create_market",
             sortedRequestPayload
         );
 

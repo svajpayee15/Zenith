@@ -19,7 +19,7 @@ const updateLeverage = require("./leverage.command.js");
 const getAccountInfo = require("./account.command.js");
 const toggleMargin = require("./margin.command.js");
 
-const API_BASE = "https://test-api.pacifica.fi/api/v1";
+const API_BASE = "https://api.pacifica.fi/api/v1";
 
 function formatError(err) {
   if (!err) return "Unknown Error";

@@ -65,7 +65,7 @@ const revokePost = async (req, res) => {
 
     try {
       const resp = await axios.post(
-        "https://test-api.pacifica.fi/api/v1/account/builder_codes/revoke",
+        "https://api.pacifica.fi/api/v1/account/builder_codes/revoke",
         ApprovalPayload
       );
 
