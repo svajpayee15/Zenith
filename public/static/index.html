@@ -201,8 +201,6 @@
             border-radius: 50%;
             animation: aura-beep 7s infinite ease-in-out;
             z-index: 0;
-             /* filter: blur(40px);
-            opacity: 0.35; */
             pointer-events: none;
         }
 
@@ -302,7 +300,7 @@
         </div>
     </nav>
 
-    <!-- Hero Section - PROTECTED -->
+    <!-- Hero Section -->
     <section class="hero-reactive-bg min-h-screen flex flex-col justify-center px-10 pt-16 overflow-hidden border-b border-white/5">
         <div class="spotlight-reveal"></div>
 
@@ -321,9 +319,13 @@
                 <p class="text-lg sm:text-2xl text-slate-200 max-w-2xl font-light leading-snug tracking-tight">
                     Mako is a Discord trading bot on <span class="text-white font-medium">Pacifica Finance</span>. It ensures secure and fast trading with the best UX, right inside Discord.
                 </p>
-                <div class="flex flex items-end gap-3">
-                    <button onclick="window.location.href='https://discord.gg/be7yacbtQz'" class="btn-mako">Trade Now</button>
-                    <button onclick="window.location.href='https://discord.com/oauth2/authorize?client_id=1440349761055101051'" class="btn-mako">Integrate Bot</button>
+                <div class="flex flex-col items-end gap-3">
+                    <div class="flex items-end gap-3">
+                        <button onclick="window.location.href='https://discord.gg/be7yacbtQz'" class="btn-mako">Trade Now</button>
+                        <button onclick="window.location.href='https://discord.com/oauth2/authorize?client_id=1440349761055101051'" class="btn-mako">Integrate Bot</button>
+                    </div>
+                    <!-- RECALIBRATED SUB-TEXT SIZE (10px) -->
+                    <p class="mono text-[11px] text-slate-200 uppercase tracking-[0.15em] px-1">Add bot in your server</p>
                 </div>
             </div>
         </div>
@@ -425,7 +427,7 @@
         </div>
     </section>
 
-    <!-- Terminal Image (MODIFIED: Glow Aura from Behind) -->
+    <!-- Terminal Image - PROTECTED WITH GLOBA AURA -->
     <section id="terminal" class="py-24 px-6 bg-black flex flex-col justify-center items-center min-h-[90vh]">
         <div class="reveal mb-12 text-center">
             <h2 class="text-5xl font-black uppercase italic tracking-tighter mb-4 leading-none">The Terminal</h2>
@@ -433,10 +435,7 @@
         </div>
         
         <div class="terminal-container reveal">
-            <!-- One single large beeping glow source behind the image -->
             <div class="terminal-glow-aura"></div>
-            
-            <!-- Terminal Image -->
             <img src="image (9).png" alt="Mako Terminal" class="terminal-image">
         </div>
     </section>
