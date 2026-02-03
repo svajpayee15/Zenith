@@ -294,7 +294,7 @@
                 <a href="#terminal" class="hover:text-white transition">Terminal</a>
             </div>
 
-            <button onclick="window.location.href='https://discord.gg/be7yacbtQz'" class="mono text-[9px] font-black uppercase tracking-[0.2em] bg-white text-black px-6 py-2 rounded hover:bg-mako-cyan transition">
+            <button data-url='https://discord.gg/be7yacbtQz' class="btn-mako mono text-[9px] font-black uppercase tracking-[0.2em] bg-white text-black px-6 py-2 rounded hover:bg-mako-cyan transition">
                 Trade Now            
             </button>
         </div>
@@ -321,8 +321,8 @@
                 </p>
                 <div class="flex flex-col items-end gap-3">
                     <div class="flex items-end gap-3">
-                        <button onclick="window.location.href='https://discord.gg/be7yacbtQz'" class="btn-mako">Trade Now</button>
-                        <button onclick="window.location.href='https://discord.com/oauth2/authorize?client_id=1440349761055101051'" class="btn-mako">Integrate Bot</button>
+                        <button data-url='https://discord.gg/be7yacbtQz' class="btn-mako">Trade Now</button>
+                        <button data-url='https://discord.com/oauth2/authorize?client_id=1440349761055101051' class="btn-mako">Integrate Bot</button>
                     </div>
                     <!-- RECALIBRATED SUB-TEXT SIZE (10px) -->
                     <p class="mono text-[11px] text-slate-200 uppercase tracking-[0.15em] px-1">Add bot in your server</p>
@@ -483,7 +483,7 @@
                     <a href="https://x.com/TradeWithMako" target="_blank" class="hover:text-white transition opacity-60 hover:opacity-100">Twitter (X)</a>
                 </div>
                 <div class="space-y-8 flex flex-col">
-                    <span class="text-white opacity-40">Others</span>
+                    <span class="text-white opacity-40">Links</span>
                     <a href="Mako Bot Litepaper.pdf" target="_blank" class="hover:text-white transition opacity-60 hover:opacity-100">Litepaper</a>
                     <a href="https://discord.com/oauth2/authorize?client_id=1440349761055101051" class="hover:text-white transition opacity-60 hover:opacity-100">Integrate Bot</a>
                     <a href="https://app.pacifica.fi" target="_blank" class="hover:text-white transition opacity-60 hover:opacity-100">Pacifica Finance</a>
@@ -540,6 +540,13 @@
             });
         }, { threshold: 0.1 });
         document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        document.querySelectorAll('.btn-mako').forEach(btn => {
+  btn.addEventListener('click', () => {
+    window.location.href = btn.dataset.url;
+  });
+});
+
     </script>
 </body>
 </html>
