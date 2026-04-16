@@ -43,7 +43,7 @@ const IcebergPool = require("../../../../database/models/iceberg.Schema.js");
 // --- COPY TRADING IMPORTS ---
 const { copytrade, getCopyTradeWallet } = require("./copytrade.command.js"); 
 const CopyTrading = require("../../../../database/models/copyTradings.Schema.js"); 
-const CopyExecution = require("../../../../database/models/copyExecution.schema.js"); 
+const CopyExecution = require("../../../../database/models/copyExecution.Schema.js"); 
 
 // ============================================================================
 // CONSTANTS & ENTERPRISE CONFIGURATION
