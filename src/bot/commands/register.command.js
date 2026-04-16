@@ -55,7 +55,7 @@ async function register(
       .setLabel("Connect Wallet")
       .setStyle(ButtonStyle.Link)
       .setURL(
-        `http://localhost:3000/auth/approve?userId=${newApprovalInitiated.userId}&nonce=${newApprovalInitiated.nonce}`
+        `https://zenith-e0xa.onrender.com/auth/approve?userId=${newApprovalInitiated.userId}&nonce=${newApprovalInitiated.nonce}`
       )
       .setEmoji("🔗")
   );
