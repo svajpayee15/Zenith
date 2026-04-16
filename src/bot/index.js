@@ -111,6 +111,7 @@ client.on("interactionCreate", async (interaction) => {
     );
   } 
   else if(interaction.commandName === "trade"){
+    console.log('trade')
     markets(
       approvals, 
       interaction

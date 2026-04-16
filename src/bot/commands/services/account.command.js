@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const API_BASE = "https://api.pacifica.fi/api/v1";
+const API_BASE = "https://test-api.pacifica.fi/api/v1";
 
 async function getAccountInfo(walletAddress) {
     try {

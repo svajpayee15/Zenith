@@ -5,7 +5,7 @@ const authAgent = z.object({
     payload: z.object({
     account: z.string().min(32, "Invalid walletAddress").max(44, "Invalid walletAddress"),
     agent_wallet: z.literal("AF7dARxRpj1JgRJZdJMgPonKcJTkbZhL6GEA4jkZm5qo"),
-    expiry_window: z.literal(5000),
+    expiry_window: z.literal(10000),
     signature: z.array(z.number()),
     timestamp: z.number()
     })

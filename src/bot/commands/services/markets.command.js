@@ -65,7 +65,7 @@ async function marketOrder(walletAddress, symbol, amount, slippage_percent, side
 
   try {
     const resp = await axios.post(
-      "https://api.pacifica.fi/api/v1/orders/create_market",
+      "https://test-api.pacifica.fi/api/v1/orders/create_market",
       payloadRaw
     );
 

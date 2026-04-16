@@ -48,7 +48,7 @@ async function updateLeverage(walletAddress, symbol, lev) {
 
     try {
         const response = await axios.post(
-            "https://api.pacifica.fi/api/v1/account/leverage", 
+            "https://test-api.pacifica.fi/api/v1/account/leverage", 
             requestPayload, 
             { headers: { "Content-Type": "application/json" } }
         );

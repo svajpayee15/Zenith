@@ -16,7 +16,7 @@ const authApiSchemaPost = z.object({
       builder_code: z.literal("prathamdev69"),
       max_fee_rate: z.literal("0.001").optional(),
     }),
-    expiry_window: z.literal(5000),
+    expiry_window: z.literal(10000),
     timestamp: z.number(),
     type: z.enum(["approve_builder_code", "revoke_builder_code"]),
   }),

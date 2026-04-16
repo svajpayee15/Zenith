@@ -56,7 +56,7 @@ async function revoke(
           .setLabel("Connect Wallet")
           .setStyle(ButtonStyle.Link)
           .setURL(
-            `https://mako-trade-bot.onrender.com/auth/revoke?userId=${interaction.user.id}&nonce=${nonce}`
+            `http://localhost:3000/auth/revoke?userId=${interaction.user.id}&nonce=${nonce}`
           )
           .setEmoji("🔗")
       );

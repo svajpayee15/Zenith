@@ -45,7 +45,7 @@ async function toggleMargin(userWalletAddress, symbol, isIsolated){
     const sortedRequestPayload = sortRecursive(requestPayload)
 
     try{
-    const response = await axios.post("https://api.pacifica.fi/api/v1/account/margin", sortedRequestPayload, { headers: { "Content-Type": "application/json" } })
+    const response = await axios.post("https://test-api.pacifica.fi/api/v1/account/margin", sortedRequestPayload, { headers: { "Content-Type": "application/json" } })
     console.log("✅ Success:", response.data);
     return response.data;
     } catch(e){

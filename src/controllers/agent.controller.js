@@ -47,7 +47,7 @@ async function bind(req, res) {
     }
 
     try {
-        const response = await axios.post("https://api.pacifica.fi/api/v1/agent/bind", payload);
+        const response = await axios.post("https://test-api.pacifica.fi/api/v1/agent/bind", payload);
 
         if (response.data.success || response.success) {
             await approvals.findOneAndUpdate(
@@ -100,7 +100,7 @@ async function revoke(req, res) {
         return res.status(500).json({ error: "Verification processing error." });
     }
     try {
-        const response = await axios.post("https://api.pacifica.fi/api/v1/agent/revoke", payload);
+        const response = await axios.post("https://test-api.pacifica.fi/api/v1/agent/revoke", payload);
 
         if (response.data.success) {
             await approvals.deleteOne({ userId: userId });

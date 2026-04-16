@@ -74,9 +74,9 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
 
-setInterval(() => {
-    axios.get(MY_RENDER_URL)
-        .then(() => console.log("⏰ Keep-alive ping sent."))
-        .catch((err) => console.error("⚠️ Keep-alive ping failed:", err.message));
-}, 45000);
+// setInterval(() => {
+//     axios.get(MY_RENDER_URL)
+//         .then(() => console.log("⏰ Keep-alive ping sent."))
+//         .catch((err) => console.error("⚠️ Keep-alive ping failed:", err.message));
+// }, 45000);
 

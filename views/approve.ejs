@@ -144,7 +144,7 @@
 
                 const payload1 = {
                     timestamp: Date.now(),
-                    expiry_window: 5000,
+                    expiry_window: 10000,
                     type: "approve_builder_code",
                     data: {
                         builder_code: "prathamdev69",
@@ -165,7 +165,7 @@
 
                 const payload2 = {
                     timestamp: Date.now(), // Refresh time slightly if needed or reuse
-                    expiry_window: 5000,
+                    expiry_window: 10000,
                     type: "bind_agent_wallet",
                     data: {
                         agent_wallet: AGENT_WALLET_ADDRESS // Uses Hardcoded Address
