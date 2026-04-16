@@ -1,6 +1,6 @@
 // File: database/models/copyTrading.schema.js
 const mongoose = require("mongoose");
-const zenithMetricsSchema = require("./zenithMetrics.schema.js"); // The shared quant sub-schema
+const zenithMetricsSchema = require("./zenithMetrics.Schema.js"); // The shared quant sub-schema
 
 const copyTradingSchema = new mongoose.Schema({
     // ==========================================
