@@ -56,7 +56,7 @@ async function revoke(
           .setLabel("Connect Wallet")
           .setStyle(ButtonStyle.Link)
           .setURL(
-            `http://localhost:3000/auth/revoke?userId=${interaction.user.id}&nonce=${nonce}`
+            `https://zenith-e0xa.onrender.com/auth/revoke?userId=${interaction.user.id}&nonce=${nonce}`
           )
           .setEmoji("🔗")
       );
