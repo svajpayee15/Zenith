@@ -3,7 +3,7 @@
 const WebSocket = require("ws");
 const EventEmitter = require("events"); // NEW: Native Node.js Event Bus
 const CopyTrading = require("../../database/models/copyTradings.Schema.js"); 
-const CopyExecution = require("../../database/models/copyExecution.schema.js");
+const CopyExecution = require("../../database/models/copyExecution.Schema.js");
 
 const WS_URL = "wss://test-ws.pacifica.fi/ws";
 const REST_BASE = "https://test-api.pacifica.fi/api/v1"; 
