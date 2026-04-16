@@ -7,7 +7,7 @@ const cors = require("cors")
 
 const app = express();
 const PORT = 3000 || 4000 || 5000;
-const MY_RENDER_URL = "https://mako-trade-bot.onrender.com/ping";
+const MY_RENDER_URL = "https://zenith-e0xa.onrender.com//ping";
 
 const connectDB = require("./database/db.js");
 const auth = require("./src/routers/auth.routes.js")
@@ -74,9 +74,9 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
 
-// setInterval(() => {
-//     axios.get(MY_RENDER_URL)
-//         .then(() => console.log("⏰ Keep-alive ping sent."))
-//         .catch((err) => console.error("⚠️ Keep-alive ping failed:", err.message));
-// }, 45000);
+setInterval(() => {
+    axios.get(MY_RENDER_URL)
+        .then(() => console.log("⏰ Keep-alive ping sent."))
+        .catch((err) => console.error("⚠️ Keep-alive ping failed:", err.message));
+}, 45000);
 
